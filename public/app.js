@@ -1,19 +1,19 @@
 const $ = (id) => document.getElementById(id);
 
 const columns = [
-  ["symbol", "合约", "text"],
-  ["pancake", "Pancake区间", "button"],
-  ["marketCap", "市值", "number"],
-  ["bscLiquidityUsd", "BSC流动性", "number"],
-  ["bscLiquidityBand", "流动性区间", "text"],
-  ["bscLiquidityToMcap", "池/市值", "ratio"],
-  ["bscVolume24h", "24h DEX量", "number"],
-  ["fundingRate", "资金费率", "rate"],
-  ["changePct", "持仓变化", "pct"],
-  ["valueChangePct", "名义价值变化", "pct"],
-  ["startOpenInterest", "起始 OI", "compact"],
-  ["endOpenInterest", "当前 OI", "compact"],
-  ["endTime", "区间", "time"],
+  ["symbol", "Symbol", "text"],
+  ["pancake", "Range", "button"],
+  ["marketCap", "MCap", "number"],
+  ["bscLiquidityUsd", "Liquidity", "number"],
+  ["bscLiquidityBand", "Band", "text"],
+  ["bscLiquidityToMcap", "Liq/MCap", "ratio"],
+  ["bscVolume24h", "24h Flow", "number"],
+  ["fundingRate", "Rate", "rate"],
+  ["changePct", "Position Chg", "pct"],
+  ["valueChangePct", "Value Chg", "pct"],
+  ["startOpenInterest", "Start Pos", "compact"],
+  ["endOpenInterest", "Current Pos", "compact"],
+  ["endTime", "Window", "time"],
 ];
 
 const controls = {
@@ -99,7 +99,7 @@ function fmtTime(ms) {
 }
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">区间图</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">Chart</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
@@ -162,8 +162,8 @@ function updateSortButtons() {
 }
 
 function rerenderTables() {
-  renderRows(els.alertsBody, sortedRows("alerts"), "当前没有合约同时满足持仓增幅和流动性区间");
-  renderRows(els.topBody, sortedRows("top"), "当前流动性区间内暂无数据");
+  renderRows(els.alertsBody, sortedRows("alerts"), "No rows match the current signal filters");
+  renderRows(els.topBody, sortedRows("top"), "No rows match the current filters");
   updateSortButtons();
 }
 
@@ -177,16 +177,16 @@ function shortPrice(value) {
 }
 
 function renderLiquidityChart(data) {
-  els.liqTitle.textContent = `${data.symbol} Pancake V3 流动性区间`;
+  els.liqTitle.textContent = `${data.symbol} Liquidity Range`;
   if (!data.hasPancakeV3Pool) {
     els.liqMeta.textContent = "";
     els.liqChart.innerHTML = "";
-    els.liqStatus.textContent = data.message || "没有找到 Pancake V3 池子";
+    els.liqStatus.textContent = data.message || "No supported liquidity pool found";
     return;
   }
 
   const maxLiquidity = Math.max(...data.bins.map((b) => Number(b.liquidity) || 0), 1);
-  els.liqMeta.textContent = `当前价格 ${shortPrice(data.currentPrice)} ${data.quoteSymbol} per ${data.baseSymbol} · tick ${data.currentTick} · 池流动性 ${fmtUsd(data.liquidityUsd)}`;
+  els.liqMeta.textContent = `Current ${shortPrice(data.currentPrice)} ${data.quoteSymbol} per ${data.baseSymbol} · tick ${data.currentTick} · liquidity ${fmtUsd(data.liquidityUsd)}`;
   els.liqChart.innerHTML = data.bins
     .map((bin, index) => {
       const height = Math.max(4, (Number(bin.liquidity) / maxLiquidity) * 100);
@@ -194,20 +194,20 @@ function renderLiquidityChart(data) {
       return `<div class="liqBar ${bin.active ? "active" : ""}" style="height:${height}%" data-price="${showLabel ? shortPrice(bin.price) : ""}" title="${shortPrice(bin.price)} · L ${fmtCompact(bin.liquidity)}"></div>`;
     })
     .join("");
-  els.liqStatus.textContent = "青色为价格区间流动性，粉色为当前价格所在区间。";
+  els.liqStatus.textContent = "Cyan bars show range liquidity. Pink marks the current price range.";
 }
 
 async function openLiquidityRange(symbol) {
-  els.liqTitle.textContent = `${symbol} Pancake V3 流动性区间`;
+  els.liqTitle.textContent = `${symbol} Liquidity Range`;
   els.liqMeta.textContent = "";
   els.liqChart.innerHTML = "";
-  els.liqStatus.textContent = "读取 Pancake V3 tick 流动性中...";
+  els.liqStatus.textContent = "Loading liquidity range...";
   els.liquidityDialog.showModal();
 
   try {
     const response = await fetch(`/api/liquidity-range?symbol=${encodeURIComponent(symbol)}`);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "读取失败");
+    if (!response.ok) throw new Error(data.error || "Load failed");
     renderLiquidityChart(data);
   } catch (error) {
     els.liqStatus.textContent = error.message;
@@ -228,12 +228,12 @@ async function scan() {
 
   els.refreshBtn.disabled = true;
   els.liquidityScanBtn.disabled = true;
-  els.status.textContent = "扫描中...";
+  els.status.textContent = "Scanning...";
 
   try {
     const response = await fetch(`/api/scan?${params}`);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "扫描失败");
+    if (!response.ok) throw new Error(data.error || "Scan failed");
 
     els.alertCount.textContent = data.alerts.length;
     els.scanned.textContent = data.scanned;
@@ -243,15 +243,15 @@ async function scan() {
       second: "2-digit",
     });
     const liqText = data.liquidityRange
-      ? ` · 池/市值 ${data.liquidityRange.minPct ?? 0}% - ${data.liquidityRange.maxPct ?? "∞"}%`
+      ? ` · Liq/MCap ${data.liquidityRange.minPct ?? 0}% - ${data.liquidityRange.maxPct ?? "∞"}%`
       : "";
-    els.status.textContent = `阈值 ${data.threshold}% · ${data.period} × ${data.points}${liqText}`;
+    els.status.textContent = `Threshold ${data.threshold}% · ${data.period} × ${data.points}${liqText}`;
 
     latestRows = { alerts: data.alerts, top: data.topRisers };
     rerenderTables();
   } catch (error) {
     els.status.textContent = error.message;
-    renderRows(els.alertsBody, [], "扫描失败，请稍后重试");
+    renderRows(els.alertsBody, [], "Scan failed. Try again later.");
   } finally {
     els.refreshBtn.disabled = false;
     els.liquidityScanBtn.disabled = false;

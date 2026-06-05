@@ -1,17 +1,17 @@
 export const columns = [
-  ["symbol", "合约", "text"],
-  ["pancake", "Pancake区间", "button"],
-  ["marketCap", "市值", "number"],
-  ["bscLiquidityUsd", "BSC流动性", "number"],
-  ["bscLiquidityBand", "流动性区间", "text"],
-  ["bscLiquidityToMcap", "池/市值", "ratio"],
-  ["bscVolume24h", "24h DEX量", "number"],
-  ["fundingRate", "资金费率", "rate"],
-  ["changePct", "持仓变化", "pct"],
-  ["valueChangePct", "名义价值变化", "pct"],
-  ["startOpenInterest", "起始 OI", "compact"],
-  ["endOpenInterest", "当前 OI", "compact"],
-  ["endTime", "区间", "time"],
+  ["symbol", "Symbol", "text"],
+  ["pancake", "Range", "button"],
+  ["marketCap", "MCap", "number"],
+  ["bscLiquidityUsd", "Liquidity", "number"],
+  ["bscLiquidityBand", "Band", "text"],
+  ["bscLiquidityToMcap", "Liq/MCap", "ratio"],
+  ["bscVolume24h", "24h Flow", "number"],
+  ["fundingRate", "Rate", "rate"],
+  ["changePct", "Position Chg", "pct"],
+  ["valueChangePct", "Value Chg", "pct"],
+  ["startOpenInterest", "Start Pos", "compact"],
+  ["endOpenInterest", "Current Pos", "compact"],
+  ["endTime", "Window", "time"],
 ];
 
 export function fmtPct(value) {
@@ -70,16 +70,16 @@ export function shortPrice(value) {
 }
 
 export function renderLiquidityChart(data, els) {
-  els.liqTitle.textContent = `${data.symbol} Pancake V3 流动性区间`;
+  els.liqTitle.textContent = `${data.symbol} Liquidity Range`;
   if (!data.hasPancakeV3Pool) {
     els.liqMeta.textContent = "";
     els.liqChart.innerHTML = "";
-    els.liqStatus.textContent = data.message || "没有找到 Pancake V3 池子";
+    els.liqStatus.textContent = data.message || "No supported liquidity pool found";
     return;
   }
 
   const maxLiquidity = Math.max(...data.bins.map((b) => Number(b.liquidity) || 0), 1);
-  els.liqMeta.textContent = `当前价格 ${shortPrice(data.currentPrice)} ${data.quoteSymbol} per ${data.baseSymbol} · tick ${data.currentTick} · 池流动性 ${fmtUsd(data.liquidityUsd)}`;
+  els.liqMeta.textContent = `Current ${shortPrice(data.currentPrice)} ${data.quoteSymbol} per ${data.baseSymbol} · tick ${data.currentTick} · liquidity ${fmtUsd(data.liquidityUsd)}`;
   els.liqChart.innerHTML = data.bins
     .map((bin, index) => {
       const height = Math.max(4, (Number(bin.liquidity) / maxLiquidity) * 100);
@@ -87,5 +87,5 @@ export function renderLiquidityChart(data, els) {
       return `<div class="liqBar ${bin.active ? "active" : ""}" style="height:${height}%" data-price="${showLabel ? shortPrice(bin.price) : ""}" title="${shortPrice(bin.price)} · L ${fmtCompact(bin.liquidity)}"></div>`;
     })
     .join("");
-  els.liqStatus.textContent = "青色为价格区间流动性，粉色为当前价格所在区间。";
+  els.liqStatus.textContent = "Cyan bars show range liquidity. Pink marks the current price range.";
 }

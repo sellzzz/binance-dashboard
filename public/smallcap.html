@@ -3,23 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>小市值合约雷达</title>
+    <title>Small Cap Monitor</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="toolbar">
         <div>
-          <h1>小市值合约雷达</h1>
-          <p>独立关注低市值 USDT-M 合约的持仓变化、资金费、BSC 池子和 Pancake V3 区间。</p>
+          <h1>Small Cap Monitor</h1>
+          <p>Focused market data view for smaller names, position changes, rates, and liquidity context.</p>
         </div>
         <div class="actions">
-          <a class="linkBtn" href="/">返回总看板</a>
+          <a class="linkBtn" href="/">Main Dashboard</a>
           <button id="refreshBtn" type="button">刷新</button>
         </div>
       </section>
 
-      <section class="controls" aria-label="小市值筛选条件">
+      <section class="controls" aria-label="Small cap filters">
         <label>
           周期
           <select id="period">
@@ -34,34 +34,34 @@
           <input id="points" type="number" min="2" max="30" value="5" />
         </label>
         <label>
-          市值上限 $M
+          Market Cap Max $M
           <input id="smallCapMaxM" type="number" min="1" max="5000" value="100" />
         </label>
         <label>
-          最小增仓 %
+          Min Change %
           <input id="smallCapMinChange" type="number" min="-100" max="500" value="0" />
         </label>
         <label>
-          扫描数量
+          Scan Limit
           <input id="maxSymbols" type="number" min="20" max="500" value="500" />
         </label>
         <label>
-          合约搜索
+          Symbol Search
           <input id="symbolSearch" type="search" placeholder="KOMA" />
         </label>
       </section>
 
       <section class="stats" aria-label="扫描结果概要">
         <div>
-          <span>小市值数量</span>
+          <span>Small Cap Count</span>
           <strong id="smallCount">-</strong>
         </div>
         <div>
-          <span>已扫描</span>
+          <span>Scanned</span>
           <strong id="scanned">-</strong>
         </div>
         <div>
-          <span>更新时间</span>
+          <span>Updated</span>
           <strong id="updated">-</strong>
         </div>
       </section>
@@ -69,7 +69,7 @@
       <section class="panel focusPanel">
         <div class="panelHead">
           <div>
-            <h2>小市值合约列表</h2>
+            <h2>Small Cap List</h2>
             <p id="status">等待扫描</p>
           </div>
         </div>
@@ -85,10 +85,10 @@
     <dialog id="liquidityDialog">
       <div class="dialogHead">
         <div>
-          <h2 id="liqTitle">Pancake 流动性区间</h2>
+          <h2 id="liqTitle">Liquidity Range</h2>
           <p id="liqMeta"></p>
         </div>
-        <button id="closeDialog" type="button" class="secondary">关闭</button>
+        <button id="closeDialog" type="button" class="secondary">Close</button>
       </div>
       <div id="liqChart" class="liqChart"></div>
       <div id="liqStatus" class="liqStatus"></div>

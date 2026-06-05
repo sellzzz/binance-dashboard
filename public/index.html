@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Binance 合约持仓量异常看板</title>
+    <title>Market Data Dashboard</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <section class="toolbar">
         <div>
-          <h1>合约持仓量异常</h1>
-          <p>Binance USDT-M 永续合约，筛选持仓量增幅超过阈值的标的。</p>
+          <h1>Position Monitor</h1>
+          <p>Internal market data dashboard for monitoring position changes and liquidity context.</p>
         </div>
         <div class="actions">
-          <a class="linkBtn" href="/smallcap.html">小市值合约</a>
+          <a class="linkBtn" href="/smallcap.html">Small Cap Monitor</a>
           <button id="refreshBtn" type="button">刷新</button>
         </div>
       </section>
@@ -36,46 +36,46 @@
           <input id="points" type="number" min="2" max="30" value="5" />
         </label>
         <label>
-          异常阈值 %
+          Change Threshold %
           <input id="threshold" type="number" min="0" max="500" value="30" />
         </label>
         <label>
-          扫描数量
+          Scan Limit
           <input id="maxSymbols" type="number" min="20" max="500" value="260" />
         </label>
       </section>
 
       <section class="controls extension" aria-label="池市值比例筛选">
         <label>
-          池/市值最小 %
+          Liquidity/MCap Min %
           <input id="liqMin" type="number" min="0" max="100" step="0.1" placeholder="0.5" />
         </label>
         <label>
-          池/市值最大 %
+          Liquidity/MCap Max %
           <input id="liqMax" type="number" min="0" max="100" step="0.1" placeholder="1" />
         </label>
-        <button id="liquidityScanBtn" type="button">筛选池/市值</button>
-        <button id="clearLiquidityBtn" type="button" class="secondary">清除区间</button>
+        <button id="liquidityScanBtn" type="button">Filter Liquidity</button>
+        <button id="clearLiquidityBtn" type="button" class="secondary">Clear</button>
       </section>
 
       <section class="stats" aria-label="扫描结果概要">
         <div>
-          <span>异常数量</span>
+          <span>Signals</span>
           <strong id="alertCount">-</strong>
         </div>
         <div>
-          <span>已扫描</span>
+          <span>Scanned</span>
           <strong id="scanned">-</strong>
         </div>
         <div>
-          <span>更新时间</span>
+          <span>Updated</span>
           <strong id="updated">-</strong>
         </div>
       </section>
 
       <section class="panel">
         <div class="panelHead">
-          <h2>异常增仓 ≥ 阈值</h2>
+          <h2>Position Change Signals</h2>
           <span id="status">等待扫描</span>
         </div>
         <div class="tableWrap">
@@ -88,7 +88,7 @@
 
       <section class="panel">
         <div class="panelHead">
-          <h2>增仓排行 Top 30</h2>
+          <h2>Position Change Top 30</h2>
         </div>
         <div class="tableWrap">
           <table>
@@ -102,10 +102,10 @@
     <dialog id="liquidityDialog">
       <div class="dialogHead">
         <div>
-          <h2 id="liqTitle">Pancake 流动性区间</h2>
+          <h2 id="liqTitle">Liquidity Range</h2>
           <p id="liqMeta"></p>
         </div>
-        <button id="closeDialog" type="button" class="secondary">关闭</button>
+        <button id="closeDialog" type="button" class="secondary">Close</button>
       </div>
       <div id="liqChart" class="liqChart"></div>
       <div id="liqStatus" class="liqStatus"></div>

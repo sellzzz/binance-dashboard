@@ -41,7 +41,7 @@ let rows = [];
 let sortState = { key: "changePct", dir: "desc" };
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">区间图</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">Chart</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
@@ -80,7 +80,7 @@ function sortedRows() {
 function renderRows() {
   const sorted = sortedRows();
   if (!sorted.length) {
-    els.smallBody.innerHTML = `<tr><td class="empty" colspan="${columns.length}">当前没有符合条件的小市值合约</td></tr>`;
+    els.smallBody.innerHTML = `<tr><td class="empty" colspan="${columns.length}">No rows match the current filters</td></tr>`;
   } else {
     els.smallBody.innerHTML = sorted
       .map((row) => `<tr>${columns.map(([key, , type]) => {
@@ -103,16 +103,16 @@ function renderRows() {
 }
 
 async function openLiquidityRange(symbol) {
-  els.liqTitle.textContent = `${symbol} Pancake V3 流动性区间`;
+  els.liqTitle.textContent = `${symbol} Liquidity Range`;
   els.liqMeta.textContent = "";
   els.liqChart.innerHTML = "";
-  els.liqStatus.textContent = "读取 Pancake V3 tick 流动性中...";
+  els.liqStatus.textContent = "Loading liquidity range...";
   els.liquidityDialog.showModal();
 
   try {
     const response = await fetch(`/api/liquidity-range?symbol=${encodeURIComponent(symbol)}`);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "读取失败");
+    if (!response.ok) throw new Error(data.error || "Load failed");
     renderLiquidityChart(data, els);
   } catch (error) {
     els.liqStatus.textContent = error.message;
@@ -130,12 +130,12 @@ async function scan() {
   });
 
   els.refreshBtn.disabled = true;
-  els.status.textContent = "扫描中...";
+  els.status.textContent = "Scanning...";
 
   try {
     const response = await fetch(`/api/scan?${params}`);
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "扫描失败");
+    if (!response.ok) throw new Error(data.error || "Scan failed");
     rows = data.smallCaps || [];
     els.smallCount.textContent = rows.length;
     els.scanned.textContent = data.scanned;
@@ -144,7 +144,7 @@ async function scan() {
       minute: "2-digit",
       second: "2-digit",
     });
-    els.status.textContent = `市值 ≤ ${fmtUsd(data.smallCap.maxUsd)} · 增仓 ≥ ${data.smallCap.minChangePct}% · ${data.period} × ${data.points}`;
+    els.status.textContent = `MCap ≤ ${fmtUsd(data.smallCap.maxUsd)} · Change ≥ ${data.smallCap.minChangePct}% · ${data.period} × ${data.points}`;
     renderRows();
   } catch (error) {
     els.status.textContent = error.message;

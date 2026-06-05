@@ -1,15 +1,15 @@
-# Binance Futures OI Dashboard
+# Market Data Dashboard
 
-一个本地/服务器可运行的 Binance USDT-M 永续合约看板。
+一个本地/服务器可运行的内部市场数据看板。
 
 ## 功能
 
-- 合约持仓量异常增仓扫描
-- 小市值合约雷达
-- 资金费率
-- 市值显示，优先使用 Binance `CMCCirculatingSupply` 推导，缺失时用 CoinGecko
-- BSC 池子流动性、池/市值、24h DEX 量
-- PancakeSwap V3 tick 流动性区间图
+- Position change signal scan
+- Small cap monitor
+- Rate data
+- Market cap display, prioritizing exchange-provided circulating supply when available
+- Liquidity, liquidity/market-cap ratio, and 24h flow
+- V3 tick liquidity range chart
 - 点击表头排序
 
 ## 本地启动
@@ -44,8 +44,8 @@ npm start
 服务器需要 Node.js 18+。
 
 ```bash
-git clone <你的 GitHub 仓库地址> binance-dashboard
-cd binance-dashboard
+git clone <你的 GitHub 仓库地址> market-dashboard
+cd market-dashboard
 npm install --omit=dev
 PORT=8787 npm start
 ```
@@ -54,7 +54,7 @@ PORT=8787 npm start
 
 ```bash
 npm install -g pm2
-PORT=8787 pm2 start server.js --name binance-dashboard
+PORT=8787 pm2 start server.js --name market-dashboard
 pm2 save
 ```
 
@@ -68,12 +68,12 @@ http://服务器IP:8787/smallcap.html
 ## 环境变量
 
 - `PORT`: 服务端口，默认 `8787`
-- `BSC_RPC`: BSC RPC，默认 `https://bsc-dataseed.binance.org`
+- `BSC_RPC`: RPC endpoint，默认 `https://bsc-dataseed.binance.org`
 - `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`: 如服务器需要代理访问外部接口，可设置代理
 
 ## 数据源
 
-- Binance Futures REST API
+- Exchange futures REST API
 - CoinGecko API
 - DexScreener API
 - BSC JSON-RPC

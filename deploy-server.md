@@ -9,7 +9,7 @@
 ```powershell
 cd C:\Users\047\Documents\合约
 git add server.js package.json package-lock.json public .gitignore README.md deploy-server.md start-dashboard.ps1 start-dashboard.cmd
-git commit -m "Add Binance futures dashboard"
+git commit -m "Add market data dashboard"
 git branch -M main
 git remote add origin https://github.com/<你的用户名>/<你的仓库>.git
 git push -u origin main
@@ -28,8 +28,8 @@ git push -u origin main
 
 ```bash
 cd /opt
-git clone https://github.com/<你的用户名>/<你的仓库>.git binance-dashboard
-cd binance-dashboard
+git clone https://github.com/<你的用户名>/<你的仓库>.git market-dashboard
+cd market-dashboard
 npm install --omit=dev
 PORT=8787 npm start
 ```
@@ -38,8 +38,8 @@ PORT=8787 npm start
 
 ```bash
 npm install -g pm2
-cd /opt/binance-dashboard
-PORT=8787 pm2 start server.js --name binance-dashboard
+cd /opt/market-dashboard
+PORT=8787 pm2 start server.js --name market-dashboard
 pm2 save
 ```
 
@@ -48,8 +48,8 @@ pm2 save
 以后本地改完推送后，在服务器：
 
 ```bash
-cd /opt/binance-dashboard
+cd /opt/market-dashboard
 git pull
 npm install --omit=dev
-pm2 restart binance-dashboard
+pm2 restart market-dashboard
 ```
