@@ -1,0 +1,14 @@
+node_modules/
+__pycache__/
+*.pyc
+
+data/
+results*/
+visuals/
+
+dashboard.tar.gz
+.env
+.DS_Store
+
+backtest_*.py
+visualize_*.py
