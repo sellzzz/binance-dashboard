@@ -77,3 +77,33 @@ http://服务器IP:8787/smallcap.html
 - CoinGecko API
 - DexScreener API
 - BSC JSON-RPC
+
+## Telegram Push
+
+Create a Telegram bot with BotFather, then get your chat id. Keep both values only on the server.
+
+Test one push:
+
+```bash
+cd /opt/binance-dashboard
+export TELEGRAM_BOT_TOKEN='your_bot_token'
+export TELEGRAM_CHAT_ID='your_chat_id'
+npm run notify:telegram -- --once
+```
+
+Run hourly with pm2:
+
+```bash
+cd /opt/binance-dashboard
+TELEGRAM_BOT_TOKEN='your_bot_token' \
+TELEGRAM_CHAT_ID='your_chat_id' \
+pm2 start npm --name market-signal-push -- run notify:telegram
+pm2 save
+```
+
+Optional overrides:
+
+```bash
+SIGNAL_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500'
+SIGNAL_INTERVAL_MS=3600000
+```

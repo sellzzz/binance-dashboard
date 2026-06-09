@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "notify:telegram": "node scripts/telegram-signals.js"
   },
   "dependencies": {
     "ethers": "^6.16.0",
