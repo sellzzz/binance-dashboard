@@ -74,6 +74,18 @@ http://服务器IP:8787/smallcap.html
 ## 数据源
 
 - Exchange futures REST API
+
+## 宏观指标 API 配置
+
+宏观总览会优先读取官方 FRED 和 CME FedWatch 数据。启动前可在 PowerShell 设置服务端环境变量：
+
+```powershell
+$env:FRED_API_KEY = "你的 FRED API key"
+$env:CME_FEDWATCH_OAUTH_TOKEN = "你的 CME FedWatch OAuth token"
+npm start
+```
+
+未配置凭据、接口无订阅、超时或返回空结果时，主页显示“暂无数据”，不会填充模拟值。
 - CoinGecko API
 - DexScreener API
 - BSC JSON-RPC
@@ -107,3 +119,17 @@ Optional overrides:
 SIGNAL_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500'
 SIGNAL_INTERVAL_MS=3600000
 ```
+
+## Alpha Wallet Radar
+
+`alpha-wallet-radar/` is an independent Python + SQLite on-chain scanner. The main Node dashboard proxies it at `/wallet-radar/`.
+
+Start it on the server with PM2:
+
+```bash
+cd /opt/binance-dashboard/alpha-wallet-radar
+pm2 start app.py --name alpha-wallet-radar --interpreter python3 -- --host 127.0.0.1 --port 8810
+pm2 save
+```
+
+Then open `http://server-ip:8787/wallet-radar/`. The radar service stays on localhost; only the main dashboard port needs to be public.

@@ -12,6 +12,9 @@ const DEXSCREENER_API = "https://api.dexscreener.com";
 const BSC_RPC = process.env.BSC_RPC || "https://bsc-dataseed.binance.org";
 const CACHE_MS = 30_000;
 const MACRO_CACHE_MS = 60_000;
+const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
+const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
+const WALLET_RADAR_URL = process.env.WALLET_RADAR_URL || "http://127.0.0.1:8810";
 const CONCURRENCY = 12;
 
 let symbolsCache = { at: 0, data: [] };
@@ -163,6 +166,73 @@ async function getDxy() {
   return data;
 }
 
+function unavailableMacro(definition, status = "unavailable") {
+  return { ...definition, status, value: null, previousClose: null, change: null, changePct: null, asOf: null };
+}
+
+async function getFredMacro(definition) {
+  if (!process.env.FRED_API_KEY) return unavailableMacro(definition);
+  const url = new URL(FRED_API);
+  url.search = new URLSearchParams({
+    series_id: definition.fredSeries,
+    api_key: process.env.FRED_API_KEY,
+    file_type: "json",
+    sort_order: "desc",
+    limit: "2",
+  });
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`FRED ${response.status}`);
+    const payload = await response.json();
+    const observations = (payload.observations || [])
+      .filter((item) => item.value !== "." && Number.isFinite(Number(item.value)))
+      .slice(0, 2);
+    if (!observations.length) return unavailableMacro(definition);
+    const value = Number(observations[0].value);
+    const previousClose = observations[1] ? Number(observations[1].value) : null;
+    const change = Number.isFinite(previousClose) ? value - previousClose : null;
+    return { ...definition, status: "live", value, previousClose, change, changePct: null, asOf: observations[0].date };
+  } catch (error) {
+    console.warn(`${definition.fredSeries}: ${error.message}`);
+    return unavailableMacro(definition);
+  }
+}
+
+async function getFedWatchMacros() {
+  const definitions = macroDefinitions.filter((item) => item.fedField);
+  if (!process.env.CME_FEDWATCH_OAUTH_TOKEN) return definitions.map((definition) => unavailableMacro(definition));
+  try {
+    const response = await fetch(`${CME_FEDWATCH_API.replace(/\/$/, "")}/forecasts`, {
+      headers: {
+        Authorization: `Bearer ${process.env.CME_FEDWATCH_OAUTH_TOKEN}`,
+        Accept: "application/json",
+        "CME-Application-Name": "binance-dashboard",
+        "CME-Application-Vendor": "local",
+        "CME-Application-Version": "1.0.0",
+        "CME-Request-ID": `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        "User-Agent": "binance-dashboard/1.0",
+      },
+    });
+    if (!response.ok) throw new Error(`CME ${response.status}`);
+    const payload = await response.json();
+    const meeting = payload.payload?.[0];
+    if (!meeting) return definitions.map((definition) => unavailableMacro(definition));
+    const ranges = (meeting.rateRange || []).filter((range) => Number.isFinite(Number(range.probability)));
+    const topRange = ranges.slice().sort((a, b) => Number(b.probability) - Number(a.probability))[0];
+    const probabilityText = ranges.length
+      ? ranges.map((range) => `${Number(range.lowerRt) / 100}-${Number(range.upperRt) / 100}%: ${(Number(range.probability) * 100).toFixed(1)}%`).join(" / ")
+      : null;
+    return definitions.map((definition) => {
+      if (definition.fedField === "meeting") return { ...definition, status: meeting.meetingDt ? "live" : "unavailable", value: meeting.meetingDt || null, change: null, changePct: null, asOf: meeting.reportingDt || null };
+      if (definition.fedField === "range") return { ...definition, status: topRange ? "live" : "unavailable", value: topRange ? `${Number(topRange.lowerRt) / 100}-${Number(topRange.upperRt) / 100}%` : null, change: null, changePct: null, asOf: meeting.reportingDt || null };
+      return { ...definition, status: probabilityText ? "live" : "unavailable", value: probabilityText, change: null, changePct: null, asOf: meeting.reportingDt || null };
+    });
+  } catch (error) {
+    console.warn(`FedWatch: ${error.message}`);
+    return definitions.map((definition) => unavailableMacro(definition));
+  }
+}
+
 const macroDefinitions = [
   { id: "2y", label: "2Y 美债收益率", purpose: "观察短期利率与经济预期", source: "Yahoo Finance ^2YR", yahoo: "^2YR", frequency: "5 分钟" },
   { id: "5y", label: "5Y 美债收益率", purpose: "观察中短端利率变化", source: "Yahoo Finance ^5YR", yahoo: "^5YR", frequency: "5 分钟" },
@@ -176,12 +246,12 @@ const macroDefinitions = [
   { id: "usdcny", label: "USD/CNY", purpose: "美元兑人民币汇率", source: "Yahoo Finance CNY=X", yahoo: "CNY=X", frequency: "5 分钟" },
   { id: "eurusd", label: "EUR/USD", purpose: "欧元兑美元，观察美元和欧洲市场变化", source: "Yahoo Finance EURUSD=X", yahoo: "EURUSD=X", frequency: "5 分钟" },
   { id: "usdjpy", label: "USD/JPY", purpose: "美元兑日元，观察避险和套息交易", source: "Yahoo Finance JPY=X", yahoo: "JPY=X", frequency: "5 分钟" },
-  { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", frequency: "每日" },
-  { id: "be5y", label: "5Y BE", purpose: "未来 5 年的市场通胀预期", source: "FRED T5YIE", frequency: "每日" },
-  { id: "be10y", label: "10Y BE", purpose: "未来 10 年的市场通胀预期", source: "FRED T10YIE", frequency: "每日" },
-  { id: "fedMeeting", label: "Fed Futures 会议日期", purpose: "下一次美联储会议时间", source: "Fed Rate Monitor", frequency: "1 小时" },
-  { id: "fedRange", label: "Fed Futures 目标利率区间", purpose: "市场对会议后利率区间的预期", source: "Fed Rate Monitor", frequency: "1 小时" },
-  { id: "fedProbability", label: "Fed Futures 概率分布", purpose: "不同利率区间的市场定价概率", source: "Fed Rate Monitor", frequency: "1 小时" },
+  { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", fredSeries: "DFII10", frequency: "每日" },
+  { id: "be5y", label: "5Y BE", purpose: "未来 5 年的市场通胀预期", source: "FRED T5YIE", fredSeries: "T5YIE", frequency: "每日" },
+  { id: "be10y", label: "10Y BE", purpose: "未来 10 年的市场通胀预期", source: "FRED T10YIE", fredSeries: "T10YIE", frequency: "每日" },
+  { id: "fedMeeting", label: "Fed Futures 会议日期", purpose: "下一次美联储会议时间", source: "CME FedWatch API", fedField: "meeting", frequency: "工作日更新" },
+  { id: "fedRange", label: "Fed Futures 目标利率区间", purpose: "市场对会议后利率区间的预期", source: "CME FedWatch API", fedField: "range", frequency: "工作日更新" },
+  { id: "fedProbability", label: "Fed Futures 概率分布", purpose: "不同利率区间的市场定价概率", source: "CME FedWatch API", fedField: "probability", frequency: "工作日更新" },
   { id: "fedFunds", label: "Fed Funds Future 价格及隐含利率", purpose: "观察利率期货正在定价的平均利率", source: "Yahoo Finance / Investing", frequency: "1 小时" },
   { id: "vix", label: "VIX", purpose: "标普 500 短期期权波动率，常用恐慌指标", source: "Yahoo Finance ^VIX", yahoo: "^VIX", frequency: "5 分钟" },
   { id: "vvix", label: "VVIX", purpose: "VIX 自身的波动率，观察恐慌是否加剧", source: "Yahoo Finance ^VVIX", yahoo: "^VVIX", frequency: "5 分钟" },
@@ -196,7 +266,9 @@ let macroOverviewCache = { at: 0, data: null };
 async function getMacroOverview() {
   if (macroOverviewCache.data && Date.now() - macroOverviewCache.at < MACRO_CACHE_MS) return macroOverviewCache.data;
   const rows = await mapLimit(macroDefinitions, 6, async (definition) => {
-    if (!definition.yahoo) return { ...definition, status: "pending", value: null, change: null, changePct: null };
+    if (definition.fredSeries) return getFredMacro(definition);
+    if (definition.fedField) return unavailableMacro(definition);
+    if (!definition.yahoo) return unavailableMacro(definition);
     try {
       const chart = await yahooChart(definition.yahoo, { range: "5d", interval: "1d" });
       const meta = chart.meta || {};
@@ -218,7 +290,12 @@ async function getMacroOverview() {
       return { ...definition, status: "unavailable", value: null, change: null, changePct: null };
     }
   });
-  const data = { generatedAt: new Date().toISOString(), rows };
+  const fedRows = await getFedWatchMacros();
+  const fedByField = new Map(fedRows.map((row) => [row.fedField, row]));
+  const data = {
+    generatedAt: new Date().toISOString(),
+    rows: rows.map((row) => row.fedField ? fedByField.get(row.fedField) || row : row),
+  };
   macroOverviewCache = { at: Date.now(), data };
   return data;
 }
@@ -794,6 +871,29 @@ async function handleMacroOverview(req, res) {
   }
 }
 
+async function proxyWalletRadar(req, res) {
+  const suffix = req.url.slice("/wallet-radar".length) || "/";
+  try {
+    const response = await fetch(`${WALLET_RADAR_URL}${suffix}`, {
+      method: req.method,
+      headers: { accept: req.headers.accept || "*/*" },
+    });
+    const contentType = response.headers.get("content-type") || "application/octet-stream";
+    let body = Buffer.from(await response.arrayBuffer());
+    if (contentType.includes("text/html")) {
+      body = Buffer.from(body.toString("utf8")
+        .replaceAll('href="/styles.css"', 'href="/wallet-radar/styles.css"')
+        .replaceAll('src="/app.js"', 'src="/wallet-radar/app.js"'), "utf8");
+    } else if (contentType.includes("javascript")) {
+      body = Buffer.from(body.toString("utf8").replace(/(["'`])\/api\//g, "$1/wallet-radar/api/"), "utf8");
+    }
+    res.writeHead(response.status, { "content-type": contentType, "cache-control": "no-store" });
+    res.end(body);
+  } catch (error) {
+    json(res, 503, { error: `Wallet radar unavailable: ${error.message}` });
+  }
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -815,7 +915,12 @@ async function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url.startsWith("/api/liquidity-range")) {
+  if (req.url === "/wallet-radar") {
+    res.writeHead(302, { location: "/wallet-radar/" });
+    res.end();
+  } else if (req.url.startsWith("/wallet-radar/")) {
+    proxyWalletRadar(req, res);
+  } else if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
     if (!symbol) return json(res, 400, { error: "Missing symbol" });

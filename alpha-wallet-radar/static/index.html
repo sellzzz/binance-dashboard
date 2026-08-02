@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Alpha 链上异动雷达</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div>
+        <h1>Alpha 链上异动雷达</h1>
+        <p>钱包移动 · 24H / 48H 异常监控</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <div class="service-state" id="serviceState">
+        <span class="state-dot"></span>
+        <span id="serviceStateText">正在连接</span>
+      </div>
+      <button class="icon-command" id="refreshButton" type="button" title="刷新面板" aria-label="刷新面板">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+      <button class="primary-command" id="scanButton" type="button">
+        <i data-lucide="radar"></i>
+        <span>立即扫描</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="runtime-band">
+      <div class="runtime-copy">
+        <span class="eyebrow">实时扫描状态</span>
+        <strong id="runtimeMessage">读取服务状态...</strong>
+        <span id="runtimeTime">--</span>
+      </div>
+      <div class="progress-track" aria-label="扫描进度">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="coverage-copy">
+        <span>48H 已覆盖</span>
+        <strong id="coverageText">0 / 0</strong>
+      </div>
+    </section>
+
+    <section class="metric-strip" aria-label="异动摘要">
+      <div class="metric-cell metric-danger">
+        <span>强异动</span>
+        <strong id="criticalCount">0</strong>
+        <small>评分 80+</small>
+      </div>
+      <div class="metric-cell metric-warn">
+        <span>高关注</span>
+        <strong id="highCount">0</strong>
+        <small>评分 65–79</small>
+      </div>
+      <div class="metric-cell metric-watch">
+        <span>观察中</span>
+        <strong id="watchCount">0</strong>
+        <small>评分 48–64</small>
+      </div>
+      <div class="metric-cell metric-neutral">
+        <span>数据预热</span>
+        <strong id="warmingCount">0</strong>
+        <small>等待补齐 48H</small>
+      </div>
+      <div class="metric-cell metric-source">
+        <span>账户接口</span>
+        <strong>未使用</strong>
+        <small>公开链上数据</small>
+      </div>
+    </section>
+
+    <nav class="view-tabs" aria-label="数据视图">
+      <button class="view-tab active" data-view="alerts" type="button">异动信号</button>
+      <button class="view-tab" data-view="universe" type="button">全部 Alpha</button>
+      <button class="view-tab" data-view="labels" type="button">钱包标签</button>
+    </nav>
+
+    <section class="workspace-view active" id="alertsView">
+      <div class="toolbar">
+        <div class="search-control">
+          <i data-lucide="search"></i>
+          <input id="alertSearch" type="search" placeholder="搜索币名、CA" autocomplete="off">
+        </div>
+        <div class="segmented" id="severityFilter" aria-label="信号等级">
+          <button class="active" data-severity="" type="button">全部信号</button>
+          <button data-severity="critical" type="button">强异动</button>
+          <button data-severity="high" type="button">高关注</button>
+          <button data-severity="watch" type="button">观察</button>
+          <button data-severity="warming" type="button">预热</button>
+        </div>
+        <label class="toggle-control">
+          <input id="showQuiet" type="checkbox">
+          <span></span>
+          <em>显示常态</em>
+        </label>
+      </div>
+
+      <div class="table-shell">
+        <table class="signal-table">
+          <thead>
+            <tr>
+              <th class="rank-col">#</th>
+              <th>币种</th>
+              <th>信号</th>
+              <th class="number-col">异动评分</th>
+              <th class="number-col">24H 价格</th>
+              <th class="number-col">24H 钱包</th>
+              <th class="number-col">钱包变化</th>
+              <th class="number-col">24H 转账</th>
+              <th class="number-col">转账变化</th>
+              <th class="number-col">最近 6H</th>
+              <th>关键流向</th>
+              <th class="action-col"></th>
+            </tr>
+          </thead>
+          <tbody id="alertsBody"></tbody>
+        </table>
+        <div class="empty-state hidden" id="alertsEmpty">
+          <i data-lucide="activity"></i>
+          <strong>当前筛选下没有信号</strong>
+          <span>数据预热完成后，异常项目会自动进入这里。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="universeView">
+      <div class="toolbar">
+        <div class="search-control wide">
+          <i data-lucide="search"></i>
+          <input id="universeSearch" type="search" placeholder="搜索全部 Alpha 币种" autocomplete="off">
+        </div>
+        <span class="toolbar-meta" id="universeMeta">0 个项目</span>
+      </div>
+      <div class="table-shell">
+        <table class="signal-table">
+          <thead>
+            <tr>
+              <th>币种</th>
+              <th>合约地址</th>
+              <th class="number-col">价格</th>
+              <th class="number-col">24H 涨跌</th>
+              <th class="number-col">24H 成交额</th>
+              <th class="number-col">链上流动性</th>
+              <th class="number-col">持币地址</th>
+              <th class="action-col"></th>
+            </tr>
+          </thead>
+          <tbody id="universeBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="workspace-view" id="labelsView">
+      <div class="label-layout">
+        <form class="label-editor" id="labelForm">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">关键钱包识别</span>
+              <h2>添加钱包标签</h2>
+            </div>
+            <i data-lucide="tag"></i>
+          </div>
+          <label>钱包地址<input name="address" required placeholder="0x..."></label>
+          <label>标签名称<input name="label" required placeholder="例如：BEAT 项目方中转钱包"></label>
+          <label>关联代币 CA<input name="token_address" placeholder="留空表示全局标签"></label>
+          <label>钱包角色
+            <select name="role">
+              <option value="operator">庄家中转</option>
+              <option value="deployer">部署方</option>
+              <option value="quiet">潜伏钱包</option>
+              <option value="insider">内幕分发</option>
+              <option value="dumper">分发中钱包</option>
+              <option value="treasury">项目金库</option>
+              <option value="cex">交易所地址</option>
+              <option value="pool">流动性池</option>
+              <option value="router">路由合约</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+          <button class="primary-command full" type="submit"><i data-lucide="save"></i><span>保存标签</span></button>
+        </form>
+        <div class="label-list-area">
+          <div class="section-heading compact">
+            <div>
+              <span class="eyebrow">本地标签库</span>
+              <h2>已标注钱包</h2>
+            </div>
+            <span id="labelCount">0 个</span>
+          </div>
+          <div class="label-list" id="labelList"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="detail-drawer" id="detailDrawer" aria-hidden="true">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <div class="drawer-panel">
+      <header class="drawer-header">
+        <div class="token-heading" id="detailHeading"></div>
+        <button class="icon-command" data-close-drawer type="button" title="关闭" aria-label="关闭"><i data-lucide="x"></i></button>
+      </header>
+      <div class="drawer-content" id="detailContent"></div>
+    </div>
+  </aside>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
