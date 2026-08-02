@@ -13,7 +13,13 @@ const els = {
   vixRange: $("vixRange"),
   vixYearRange: $("vixYearRange"),
   vixStatus: $("vixStatus"),
-  vixChart: $("vixChart"),
+  dxyCard: $("dxyCard"),
+  dxyValue: $("dxyValue"),
+  dxyChange: $("dxyChange"),
+  dxyPrevious: $("dxyPrevious"),
+  dxyRange: $("dxyRange"),
+  dxyYearRange: $("dxyYearRange"),
+  dxyStatus: $("dxyStatus"),
 };
 
 function fmtPct(value) {
@@ -72,8 +78,22 @@ function renderVix(data) {
   els.vixChange.className = change > 0 ? "negative" : change < 0 ? "positive" : "";
   els.vixStatus.textContent = value >= 30 ? "高波动" : value >= 20 ? "风险升温" : "常态区间";
   els.vixCard.classList.toggle("vixElevated", value >= 20);
-  els.vixChart.dataset.history = JSON.stringify(data.history || []);
-  drawVixChart(data.history || []);
+}
+
+function renderDxy(data) {
+  const value = Number(data.value);
+  const change = Number(data.change);
+  const changePct = Number(data.changePct);
+  els.dxyValue.textContent = fmtNumber(value);
+  els.dxyPrevious.textContent = fmtNumber(data.previousClose);
+  els.dxyRange.textContent = `${fmtNumber(data.dayLow)} - ${fmtNumber(data.dayHigh)}`;
+  els.dxyYearRange.textContent = `${fmtNumber(data.yearLow)} - ${fmtNumber(data.yearHigh)}`;
+  els.dxyChange.textContent = Number.isFinite(change) && Number.isFinite(changePct)
+    ? `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%)`
+    : "-";
+  els.dxyChange.className = change > 0 ? "positive" : change < 0 ? "negative" : "";
+  els.dxyStatus.textContent = value >= 105 ? "美元偏强" : value <= 95 ? "美元偏弱" : "常态区间";
+  els.dxyCard.classList.toggle("vixElevated", value >= 105);
 }
 
 function average(values, period, index) {
@@ -161,6 +181,19 @@ async function loadVix() {
   }
 }
 
+async function loadDxy() {
+  try {
+    const response = await fetch("/api/macro/dxy");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "DXY unavailable");
+    renderDxy(data);
+  } catch (error) {
+    els.dxyStatus.textContent = "暂时无法读取";
+    els.dxyValue.textContent = "-";
+    els.dxyChange.textContent = error.message;
+  }
+}
+
 function renderSignals(rows) {
   if (!rows.length) {
     els.list.innerHTML = '<div class="emptySignal">当前没有达到阈值的信号</div>';
@@ -216,8 +249,7 @@ async function loadHome() {
 
 loadHome();
 loadVix();
+loadDxy();
 setInterval(loadHome, 60_000);
 setInterval(loadVix, 60_000);
-window.addEventListener("resize", () => {
-  if (els.vixChart?.dataset.history) drawVixChart(JSON.parse(els.vixChart.dataset.history));
-});
+setInterval(loadDxy, 60_000);

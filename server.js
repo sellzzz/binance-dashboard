@@ -22,6 +22,7 @@ let bscPoolCache = new Map();
 let pancakeV3PoolCache = new Map();
 let scanCache = new Map();
 let vixCache = { at: 0, data: null };
+let dxyCache = { at: 0, data: null };
 
 const POOL_IFACE = new Interface([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
@@ -106,14 +107,9 @@ async function yahooChart(symbol, params) {
 
 async function getVix() {
   if (vixCache.data && Date.now() - vixCache.at < MACRO_CACHE_MS) return vixCache.data;
-  const chart = await yahooChart("^VIX", { range: "1y", interval: "1d" });
+  const chart = await yahooChart("^VIX", { range: "5d", interval: "1d" });
   const meta = chart.meta || {};
-  const quote = chart.indicators?.quote?.[0] || {};
-  const history = (chart.timestamp || []).map((timestamp, index) => ({
-    time: Number(timestamp) * 1000,
-    close: Number(quote.close?.[index]),
-  })).filter((row) => Number.isFinite(row.close));
-  const closes = history.map((row) => row.close);
+  const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
   const value = Number(meta.regularMarketPrice ?? closes.at(-1));
   const previousClose = Number(meta.previousClose ?? closes.at(-2));
   if (!Number.isFinite(value)) throw new Error("VIX value unavailable");
@@ -133,9 +129,37 @@ async function getVix() {
     asOf: meta.regularMarketTime ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : new Date().toISOString(),
     fetchedAt: new Date().toISOString(),
     source: "Yahoo Finance",
-    history,
   };
   vixCache = { at: Date.now(), data };
+  return data;
+}
+
+async function getDxy() {
+  if (dxyCache.data && Date.now() - dxyCache.at < MACRO_CACHE_MS) return dxyCache.data;
+  const chart = await yahooChart("DX-Y.NYB", { range: "5d", interval: "1d" });
+  const meta = chart.meta || {};
+  const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
+  const value = Number(meta.regularMarketPrice ?? closes.at(-1));
+  const previousClose = Number(meta.previousClose ?? closes.at(-2));
+  if (!Number.isFinite(value)) throw new Error("DXY value unavailable");
+  const change = Number.isFinite(previousClose) ? value - previousClose : null;
+  const changePct = Number.isFinite(previousClose) && previousClose !== 0 ? (change / previousClose) * 100 : null;
+  const data = {
+    symbol: "DXY",
+    name: "U.S. Dollar Index",
+    value,
+    previousClose: Number.isFinite(previousClose) ? previousClose : null,
+    change,
+    changePct,
+    dayHigh: Number.isFinite(Number(meta.regularMarketDayHigh)) ? Number(meta.regularMarketDayHigh) : null,
+    dayLow: Number.isFinite(Number(meta.regularMarketDayLow)) ? Number(meta.regularMarketDayLow) : null,
+    yearHigh: Number.isFinite(Number(meta.fiftyTwoWeekHigh)) ? Number(meta.fiftyTwoWeekHigh) : null,
+    yearLow: Number.isFinite(Number(meta.fiftyTwoWeekLow)) ? Number(meta.fiftyTwoWeekLow) : null,
+    asOf: meta.regularMarketTime ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    source: "Yahoo Finance",
+  };
+  dxyCache = { at: Date.now(), data };
   return data;
 }
 
@@ -694,6 +718,14 @@ async function handleVix(req, res) {
   }
 }
 
+async function handleDxy(req, res) {
+  try {
+    json(res, 200, await getDxy());
+  } catch (error) {
+    json(res, 502, { error: error.message });
+  }
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -726,6 +758,8 @@ const server = http.createServer((req, res) => {
     handleScan(req, res);
   } else if (req.url.startsWith("/api/macro/vix")) {
     handleVix(req, res);
+  } else if (req.url.startsWith("/api/macro/dxy")) {
+    handleDxy(req, res);
   } else {
     serveStatic(req, res);
   }

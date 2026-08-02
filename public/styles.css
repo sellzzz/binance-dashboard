@@ -228,6 +228,13 @@ p {
   font-weight: 700;
 }
 
+.macroGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
 .vixCard {
   display: grid;
   grid-template-columns: minmax(220px, 1.1fr) minmax(150px, 0.7fr) minmax(250px, 1fr);
@@ -281,30 +288,6 @@ p {
 
 .vixElevated {
   background: #fffaf5;
-}
-
-.vixChartWrap {
-  grid-column: 1 / -1;
-  position: relative;
-  min-height: 250px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.vixChartLabel {
-  position: absolute;
-  top: 14px;
-  left: 0;
-  z-index: 1;
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-#vixChart {
-  display: block;
-  width: 100%;
-  height: 250px;
 }
 
 .signalList {
@@ -596,7 +579,8 @@ dialog::backdrop {
   .homeHero,
   .homeGrid,
   .signalItem,
-  .vixCard {
+  .vixCard,
+  .macroGrid {
     grid-template-columns: 1fr;
   }
 

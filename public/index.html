@@ -36,8 +36,9 @@
             <h2>宏观指标</h2>
             <p>市场风险温度 · 自动更新</p>
           </div>
-          <span class="macroSource">VIX</span>
+          <span class="macroSource">VIX · DXY</span>
         </div>
+        <div class="macroGrid">
         <div id="vixCard" class="vixCard" aria-live="polite">
           <div class="vixIdentity">
             <span class="tileKicker">Volatility Index</span>
@@ -53,10 +54,23 @@
             <span>日内 <b id="vixRange">-</b></span>
             <span>52周 <b id="vixYearRange">-</b></span>
           </div>
-          <div class="vixChartWrap">
-            <div class="vixChartLabel">VIX · 1D</div>
-            <canvas id="vixChart" aria-label="VIX 日线走势"></canvas>
+        </div>
+        <div id="dxyCard" class="vixCard" aria-live="polite">
+          <div class="vixIdentity">
+            <span class="tileKicker">Dollar Index</span>
+            <strong>DXY 美元指数</strong>
+            <span id="dxyStatus" class="vixStatus">正在读取</span>
           </div>
+          <div class="vixValue">
+            <strong id="dxyValue">-</strong>
+            <span id="dxyChange">-</span>
+          </div>
+          <div class="vixMeta">
+            <span>前收 <b id="dxyPrevious">-</b></span>
+            <span>日内 <b id="dxyRange">-</b></span>
+            <span>52周 <b id="dxyYearRange">-</b></span>
+          </div>
+        </div>
         </div>
       </section>
 
