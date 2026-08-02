@@ -14,7 +14,6 @@ const CACHE_MS = 30_000;
 const MACRO_CACHE_MS = 60_000;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
-const WALLET_RADAR_URL = process.env.WALLET_RADAR_URL || "http://127.0.0.1:8810";
 const CONCURRENCY = 12;
 
 let symbolsCache = { at: 0, data: [] };
@@ -871,29 +870,6 @@ async function handleMacroOverview(req, res) {
   }
 }
 
-async function proxyWalletRadar(req, res) {
-  const suffix = req.url.slice("/wallet-radar".length) || "/";
-  try {
-    const response = await fetch(`${WALLET_RADAR_URL}${suffix}`, {
-      method: req.method,
-      headers: { accept: req.headers.accept || "*/*" },
-    });
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
-    let body = Buffer.from(await response.arrayBuffer());
-    if (contentType.includes("text/html")) {
-      body = Buffer.from(body.toString("utf8")
-        .replaceAll('href="/styles.css"', 'href="/wallet-radar/styles.css"')
-        .replaceAll('src="/app.js"', 'src="/wallet-radar/app.js"'), "utf8");
-    } else if (contentType.includes("javascript")) {
-      body = Buffer.from(body.toString("utf8").replace(/(["'`])\/api\//g, "$1/wallet-radar/api/"), "utf8");
-    }
-    res.writeHead(response.status, { "content-type": contentType, "cache-control": "no-store" });
-    res.end(body);
-  } catch (error) {
-    json(res, 503, { error: `Wallet radar unavailable: ${error.message}` });
-  }
-}
-
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -915,12 +891,7 @@ async function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/wallet-radar") {
-    res.writeHead(302, { location: "/wallet-radar/" });
-    res.end();
-  } else if (req.url.startsWith("/wallet-radar/")) {
-    proxyWalletRadar(req, res);
-  } else if (req.url.startsWith("/api/liquidity-range")) {
+  if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
     if (!symbol) return json(res, 400, { error: "Missing symbol" });
