@@ -218,6 +218,71 @@ p {
   margin-top: 14px;
 }
 
+.macroPanel {
+  margin-top: 14px;
+}
+
+.macroSource {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vixCard {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(150px, 0.7fr) minmax(250px, 1fr);
+  gap: 22px;
+  align-items: center;
+  padding: 24px 20px;
+}
+
+.vixIdentity,
+.vixValue,
+.vixMeta {
+  display: grid;
+  gap: 8px;
+}
+
+.vixIdentity strong {
+  font-size: 20px;
+}
+
+.vixStatus {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.vixValue strong {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.vixValue span {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.vixMeta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vixMeta span {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vixMeta b {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.vixElevated {
+  background: #fffaf5;
+}
+
 .signalList {
   display: grid;
 }
@@ -506,7 +571,8 @@ dialog::backdrop {
 @media (max-width: 760px) {
   .homeHero,
   .homeGrid,
-  .signalItem {
+  .signalItem,
+  .vixCard {
     grid-template-columns: 1fr;
   }
 
@@ -524,7 +590,8 @@ dialog::backdrop {
   }
 
   .controls,
-  .stats {
+  .stats,
+  .vixMeta {
     grid-template-columns: 1fr;
   }
 }

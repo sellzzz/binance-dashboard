@@ -30,6 +30,32 @@
         </div>
       </section>
 
+      <section class="panel macroPanel" aria-label="宏观指标">
+        <div class="panelHead">
+          <div>
+            <h2>宏观指标</h2>
+            <p>市场风险温度 · 自动更新</p>
+          </div>
+          <span class="macroSource">VIX</span>
+        </div>
+        <div id="vixCard" class="vixCard" aria-live="polite">
+          <div class="vixIdentity">
+            <span class="tileKicker">Volatility Index</span>
+            <strong>VIX 恐慌指数</strong>
+            <span id="vixStatus" class="vixStatus">正在读取</span>
+          </div>
+          <div class="vixValue">
+            <strong id="vixValue">-</strong>
+            <span id="vixChange">-</span>
+          </div>
+          <div class="vixMeta">
+            <span>前收 <b id="vixPrevious">-</b></span>
+            <span>日内 <b id="vixRange">-</b></span>
+            <span>52周 <b id="vixYearRange">-</b></span>
+          </div>
+        </div>
+      </section>
+
       <section class="homeGrid" aria-label="功能入口">
         <a class="featureTile primaryTile" href="/position.html">
           <span class="tileKicker">Core Scanner</span>

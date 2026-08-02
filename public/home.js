@@ -6,6 +6,13 @@ const els = {
   updated: $("homeUpdated"),
   status: $("homeStatus"),
   list: $("homeSignalList"),
+  vixCard: $("vixCard"),
+  vixValue: $("vixValue"),
+  vixChange: $("vixChange"),
+  vixPrevious: $("vixPrevious"),
+  vixRange: $("vixRange"),
+  vixYearRange: $("vixYearRange"),
+  vixStatus: $("vixStatus"),
 };
 
 function fmtPct(value) {
@@ -43,6 +50,40 @@ function fmtTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function fmtNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(2) : "-";
+}
+
+function renderVix(data) {
+  const value = Number(data.value);
+  const change = Number(data.change);
+  const changePct = Number(data.changePct);
+  els.vixValue.textContent = fmtNumber(value);
+  els.vixPrevious.textContent = fmtNumber(data.previousClose);
+  els.vixRange.textContent = `${fmtNumber(data.dayLow)} - ${fmtNumber(data.dayHigh)}`;
+  els.vixYearRange.textContent = `${fmtNumber(data.yearLow)} - ${fmtNumber(data.yearHigh)}`;
+  els.vixChange.textContent = Number.isFinite(change) && Number.isFinite(changePct)
+    ? `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%)`
+    : "-";
+  els.vixChange.className = change > 0 ? "negative" : change < 0 ? "positive" : "";
+  els.vixStatus.textContent = value >= 30 ? "高波动" : value >= 20 ? "风险升温" : "常态区间";
+  els.vixCard.classList.toggle("vixElevated", value >= 20);
+}
+
+async function loadVix() {
+  try {
+    const response = await fetch("/api/macro/vix");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "VIX unavailable");
+    renderVix(data);
+  } catch (error) {
+    els.vixStatus.textContent = "暂时无法读取";
+    els.vixValue.textContent = "-";
+    els.vixChange.textContent = error.message;
+  }
 }
 
 function renderSignals(rows) {
@@ -99,4 +140,6 @@ async function loadHome() {
 }
 
 loadHome();
+loadVix();
 setInterval(loadHome, 60_000);
+setInterval(loadVix, 60_000);

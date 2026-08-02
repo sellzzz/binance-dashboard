@@ -11,6 +11,7 @@ const COINGECKO_API = "https://api.coingecko.com/api/v3";
 const DEXSCREENER_API = "https://api.dexscreener.com";
 const BSC_RPC = process.env.BSC_RPC || "https://bsc-dataseed.binance.org";
 const CACHE_MS = 30_000;
+const MACRO_CACHE_MS = 60_000;
 const CONCURRENCY = 12;
 
 let symbolsCache = { at: 0, data: [] };
@@ -20,6 +21,7 @@ let bscContractCache = { at: 0, data: new Map() };
 let bscPoolCache = new Map();
 let pancakeV3PoolCache = new Map();
 let scanCache = new Map();
+let vixCache = { at: 0, data: null };
 
 const POOL_IFACE = new Interface([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
@@ -85,6 +87,50 @@ async function dexscreener(path) {
     throw new Error(`DexScreener ${response.status}: ${text.slice(0, 180)}`);
   }
   return response.json();
+}
+
+async function yahooChart(symbol, params) {
+  const query = new URLSearchParams(params);
+  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`, {
+    headers: { "user-agent": "market-data-dashboard/1.0" },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Yahoo ${response.status}: ${text.slice(0, 180)}`);
+  }
+  const payload = await response.json();
+  const result = payload.chart?.result?.[0];
+  if (!result) throw new Error(payload.chart?.error?.description || "Yahoo chart data unavailable");
+  return result;
+}
+
+async function getVix() {
+  if (vixCache.data && Date.now() - vixCache.at < MACRO_CACHE_MS) return vixCache.data;
+  const chart = await yahooChart("^VIX", { range: "5d", interval: "1d" });
+  const meta = chart.meta || {};
+  const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
+  const value = Number(meta.regularMarketPrice ?? closes.at(-1));
+  const previousClose = Number(meta.previousClose ?? closes.at(-2));
+  if (!Number.isFinite(value)) throw new Error("VIX value unavailable");
+  const change = Number.isFinite(previousClose) ? value - previousClose : null;
+  const changePct = Number.isFinite(previousClose) && previousClose !== 0 ? (change / previousClose) * 100 : null;
+  const data = {
+    symbol: "VIX",
+    name: "CBOE Volatility Index",
+    value,
+    previousClose: Number.isFinite(previousClose) ? previousClose : null,
+    change,
+    changePct,
+    dayHigh: Number.isFinite(Number(meta.regularMarketDayHigh)) ? Number(meta.regularMarketDayHigh) : null,
+    dayLow: Number.isFinite(Number(meta.regularMarketDayLow)) ? Number(meta.regularMarketDayLow) : null,
+    yearHigh: Number.isFinite(Number(meta.fiftyTwoWeekHigh)) ? Number(meta.fiftyTwoWeekHigh) : null,
+    yearLow: Number.isFinite(Number(meta.fiftyTwoWeekLow)) ? Number(meta.fiftyTwoWeekLow) : null,
+    asOf: meta.regularMarketTime ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    source: "Yahoo Finance",
+  };
+  vixCache = { at: Date.now(), data };
+  return data;
 }
 
 async function rpc(method, params) {
@@ -634,6 +680,14 @@ async function handleScan(req, res) {
   }
 }
 
+async function handleVix(req, res) {
+  try {
+    json(res, 200, await getVix());
+  } catch (error) {
+    json(res, 502, { error: error.message });
+  }
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -664,6 +718,8 @@ const server = http.createServer((req, res) => {
       .catch((error) => json(res, 502, { error: error.message }));
   } else if (req.url.startsWith("/api/scan")) {
     handleScan(req, res);
+  } else if (req.url.startsWith("/api/macro/vix")) {
+    handleVix(req, res);
   } else {
     serveStatic(req, res);
   }
