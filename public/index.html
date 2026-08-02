@@ -17,15 +17,15 @@
         <div class="homeLive" aria-label="当前扫描概览">
           <div>
             <span>Signals</span>
-            <strong id="homeSignals">-</strong>
+            <strong id="homeSignals" class="skeleton skeletonNumber">-</strong>
           </div>
           <div>
             <span>Scanned</span>
-            <strong id="homeScanned">-</strong>
+            <strong id="homeScanned" class="skeleton skeletonNumber">-</strong>
           </div>
           <div>
             <span>Updated</span>
-            <strong id="homeUpdated">-</strong>
+            <strong id="homeUpdated" class="skeleton skeletonNumber">-</strong>
           </div>
         </div>
       </section>
@@ -134,7 +134,11 @@
             <thead>
               <tr><th>指标</th><th>意义和作用</th><th>数据来源</th><th>最新值</th><th>涨跌</th><th>更新频率</th></tr>
             </thead>
-            <tbody id="macroRows"></tbody>
+            <tbody id="macroRows">
+              <tr class="skeletonRow"><td colspan="6"><span class="skeleton skeletonLine"></span></td></tr>
+              <tr class="skeletonRow"><td colspan="6"><span class="skeleton skeletonLine"></span></td></tr>
+              <tr class="skeletonRow"><td colspan="6"><span class="skeleton skeletonLine"></span></td></tr>
+            </tbody>
           </table>
         </div>
       </section>

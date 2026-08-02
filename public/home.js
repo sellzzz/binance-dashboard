@@ -207,19 +207,20 @@ function escapeHtml(value) {
 
 function renderMacroRows(rows) {
   els.macroRows.innerHTML = rows.map((row) => {
-    const live = row.status === "live" && Number.isFinite(Number(row.value));
+    const live = row.status === "live" && row.value !== null && row.value !== undefined;
     const change = Number(row.change);
-    const value = live ? fmtNumber(row.value) : "-";
+    const numericValue = Number(row.value);
+    const value = live ? (Number.isFinite(numericValue) ? fmtNumber(numericValue) : escapeHtml(row.value)) : "暂无数据";
     const changeText = Number.isFinite(change) && Number.isFinite(Number(row.changePct))
       ? `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${Number(row.changePct) >= 0 ? "+" : ""}${Number(row.changePct).toFixed(2)}%)`
-      : row.status === "pending" ? "待接入" : "暂无数据";
+      : "暂无数据";
     const valueClass = live ? "macroValue" : "macroPending";
     const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "macroPending";
     return `<tr>
       <td class="macroName">${escapeHtml(row.label)}</td>
       <td>${escapeHtml(row.purpose)}</td>
       <td>${escapeHtml(row.source)}</td>
-      <td class="${valueClass}">${value}${row.status === "pending" ? '<span class="macroStatus">待接入</span>' : ""}</td>
+      <td class="${valueClass}">${value}</td>
       <td class="${changeClass}">${escapeHtml(changeText)}</td>
       <td>${escapeHtml(row.frequency)}</td>
     </tr>`;
@@ -281,6 +282,7 @@ async function loadHome() {
     els.signals.textContent = alerts.length;
     els.scanned.textContent = data.scanned ?? "-";
     els.updated.textContent = data.generatedAt ? new Date(data.generatedAt).toLocaleTimeString("zh-CN") : "-";
+    [els.signals, els.scanned, els.updated].forEach((element) => element.classList.remove("skeleton", "skeletonNumber"));
     els.status.textContent = `4h x 5 | threshold ${data.threshold}% | ${fmtTime(data.generatedAt)}`;
     renderSignals(alerts);
   } catch (error) {
@@ -288,6 +290,7 @@ async function loadHome() {
     els.signals.textContent = "-";
     els.scanned.textContent = "-";
     els.updated.textContent = "-";
+    [els.signals, els.scanned, els.updated].forEach((element) => element.classList.remove("skeleton", "skeletonNumber"));
     els.list.innerHTML = '<div class="emptySignal">信号读取失败</div>';
   }
 }

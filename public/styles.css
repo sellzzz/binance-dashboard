@@ -642,6 +642,77 @@ dialog::backdrop {
   font-size: 13px;
 }
 
+.smallcapShell {
+  --smallcap-accent: #4f46e5;
+  --smallcap-accent-soft: #eef2ff;
+}
+
+.smallcapToolbar {
+  border-color: #d9ddf4;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  box-shadow: 0 12px 30px rgba(79, 70, 229, 0.07);
+}
+
+.pageEyebrow {
+  margin-bottom: 8px;
+  color: var(--smallcap-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.smallcapToolbar h1 { letter-spacing: -0.03em; }
+.smallcapToolbar p { line-height: 1.6; }
+.smallcapToolbar .linkBtn { background: rgba(255, 255, 255, 0.78); }
+.smallcapToolbar .actions button { background: var(--smallcap-accent); border-color: var(--smallcap-accent); }
+
+.smallcapControls {
+  grid-template-columns: repeat(6, minmax(130px, 1fr));
+  border-color: #e3e6f5;
+  background: #fbfbff;
+}
+
+.smallcapControls label:first-child { color: var(--smallcap-accent); font-weight: 700; }
+.smallcapControls input:focus,
+.smallcapControls select:focus {
+  outline: 3px solid rgba(79, 70, 229, 0.14);
+  border-color: #818cf8;
+}
+
+.smallcapStats {
+  border-color: #e3e6f5;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.035);
+}
+
+.smallcapStats div:first-child { background: var(--smallcap-accent-soft); }
+.smallcapStats div:first-child strong { color: var(--smallcap-accent); }
+
+.smallcapPanel {
+  border-color: #c7d2fe;
+  box-shadow: 0 10px 26px rgba(79, 70, 229, 0.05);
+}
+
+.smallcapPanel .panelHead {
+  padding: 18px 20px;
+  background: linear-gradient(90deg, #eef2ff, #f8faff);
+}
+
+.panelTitleLine { display: flex; align-items: center; gap: 9px; }
+.panelDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--smallcap-accent);
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.12);
+}
+
+.smallcapPanel tbody tr:hover { background: #f8f9ff; }
+.smallcapPanel .miniBtn { color: var(--smallcap-accent); border-color: #c7d2fe; background: #f5f7ff; }
+
+@media (max-width: 1000px) {
+  .smallcapControls { grid-template-columns: repeat(3, minmax(130px, 1fr)); }
+}
+
 @media (max-width: 760px) {
   .homeHero,
   .homeGrid,
@@ -672,5 +743,226 @@ dialog::backdrop {
 
   .macroGrid > .vixCard {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Main dashboard visual system */
+:root {
+  color-scheme: dark;
+  --bg: #080d14;
+  --panel: #111923;
+  --text: #e8eef7;
+  --muted: #8b9bb0;
+  --line: #243244;
+  --green: #39d39f;
+  --red: #ff7184;
+  --blue: #78a9ff;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.shell {
+  margin-top: 22px;
+}
+
+.homeIntro,
+.homeLive,
+.featureTile,
+.toolbar,
+.controls,
+.stats,
+.panel {
+  border-color: var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.homeIntro,
+.featureTile {
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.featureTile:hover,
+.homeIntro:hover {
+  border-color: #3e5a7b;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+  transform: translateY(-2px);
+}
+
+.homeIntro h1,
+.homeLive strong,
+.featureTile strong,
+.panelHead h2,
+.vixIdentity strong {
+  color: #f4f7fb;
+}
+
+.homeLive div,
+.panelHead,
+.signalItem,
+th,
+td,
+.stats div {
+  border-color: var(--line);
+}
+
+.homeLive span,
+.signalItem span,
+.vixStatus,
+.stats span,
+label,
+p,
+#status,
+.macroPending {
+  color: var(--muted);
+}
+
+.homeLive strong,
+.vixValue strong,
+.stats strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.linkBtn,
+button,
+select,
+input,
+.miniBtn {
+  border-color: #304257;
+  background: #162231;
+  color: var(--text);
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+button,
+.primaryTile {
+  background: #2d6cdf;
+  border-color: #2d6cdf;
+  color: #fff;
+}
+
+button:hover,
+.linkBtn:hover,
+.miniBtn:hover {
+  border-color: #78a9ff;
+  background: #20344d;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+button.secondary,
+.linkBtn {
+  background: #141f2d;
+  color: var(--blue);
+}
+
+select,
+input {
+  background: #0d151f;
+}
+
+select option {
+  background: #111923;
+  color: var(--text);
+}
+
+.primaryTile {
+  background: #172a4b;
+  border-color: #365e9d;
+}
+
+.featureTile code {
+  border-color: var(--line);
+  background: #0d151f;
+  color: var(--muted);
+}
+
+.macroTablePanel {
+  border-color: #2b3e56;
+}
+
+.macroTablePanel .panelHead,
+.macroTable th {
+  background: #151f2c;
+}
+
+.macroTable td {
+  background: #111923;
+}
+
+.macroTable tbody tr:hover,
+.signalItem:hover,
+tbody tr:hover {
+  background: #182638;
+}
+
+.macroTable td,
+.macroTable th {
+  border-color: var(--line);
+}
+
+.macroStatus {
+  background: #263547;
+  color: #aab9ca;
+}
+
+.skeleton {
+  display: inline-block;
+  min-width: 56px;
+  min-height: 1em;
+  border-radius: 4px;
+  color: transparent !important;
+  background: linear-gradient(90deg, #172333 25%, #25364a 50%, #172333 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.25s ease-in-out infinite;
+}
+
+.skeletonNumber {
+  min-width: 42px;
+  min-height: 30px;
+}
+
+.skeletonLine {
+  display: block;
+  width: 72%;
+  height: 16px;
+}
+
+.skeletonRow td {
+  height: 58px;
+}
+
+@keyframes skeletonShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.macroTableWrap,
+.tableWrap,
+.table-shell {
+  scrollbar-color: #34465c #0d151f;
+}
+
+@media (max-width: 760px) {
+  .shell {
+    width: min(100vw - 20px, 1180px);
+    margin-top: 12px;
+  }
+
+  .homeIntro,
+  .featureTile {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
   }
 }
