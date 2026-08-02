@@ -163,6 +163,66 @@ async function getDxy() {
   return data;
 }
 
+const macroDefinitions = [
+  { id: "2y", label: "2Y 美债收益率", purpose: "观察短期利率与经济预期", source: "Yahoo Finance ^2YR", yahoo: "^2YR", frequency: "5 分钟" },
+  { id: "5y", label: "5Y 美债收益率", purpose: "观察中短端利率变化", source: "Yahoo Finance ^5YR", yahoo: "^5YR", frequency: "5 分钟" },
+  { id: "10y", label: "10Y 美债收益率", purpose: "观察市场核心无风险利率", source: "Yahoo Finance ^TNX", yahoo: "^TNX", scale: 0.1, frequency: "5 分钟" },
+  { id: "30y", label: "30Y 美债收益率", purpose: "观察长期通胀与财政预期", source: "Yahoo Finance ^TYX", yahoo: "^TYX", scale: 0.1, frequency: "5 分钟" },
+  { id: "gold", label: "黄金", purpose: "避险、通胀和美元压力参考", source: "Yahoo Finance GC=F", yahoo: "GC=F", frequency: "5 分钟" },
+  { id: "silver", label: "白银", purpose: "贵金属需求和工业需求参考", source: "Yahoo Finance SI=F", yahoo: "SI=F", frequency: "5 分钟" },
+  { id: "wti", label: "WTI 原油", purpose: "美国原油价格和通胀压力参考", source: "Yahoo Finance CL=F", yahoo: "CL=F", frequency: "5 分钟" },
+  { id: "brent", label: "Brent 原油", purpose: "全球原油价格参考", source: "Yahoo Finance BZ=F", yahoo: "BZ=F", frequency: "5 分钟" },
+  { id: "dxy", label: "DXY 美元指数", purpose: "判断美元整体强弱", source: "Yahoo Finance DX-Y.NYB", yahoo: "DX-Y.NYB", frequency: "5 分钟" },
+  { id: "usdcny", label: "USD/CNY", purpose: "美元兑人民币汇率", source: "Yahoo Finance CNY=X", yahoo: "CNY=X", frequency: "5 分钟" },
+  { id: "eurusd", label: "EUR/USD", purpose: "欧元兑美元，观察美元和欧洲市场变化", source: "Yahoo Finance EURUSD=X", yahoo: "EURUSD=X", frequency: "5 分钟" },
+  { id: "usdjpy", label: "USD/JPY", purpose: "美元兑日元，观察避险和套息交易", source: "Yahoo Finance JPY=X", yahoo: "JPY=X", frequency: "5 分钟" },
+  { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", frequency: "每日" },
+  { id: "be5y", label: "5Y BE", purpose: "未来 5 年的市场通胀预期", source: "FRED T5YIE", frequency: "每日" },
+  { id: "be10y", label: "10Y BE", purpose: "未来 10 年的市场通胀预期", source: "FRED T10YIE", frequency: "每日" },
+  { id: "fedMeeting", label: "Fed Futures 会议日期", purpose: "下一次美联储会议时间", source: "Fed Rate Monitor", frequency: "1 小时" },
+  { id: "fedRange", label: "Fed Futures 目标利率区间", purpose: "市场对会议后利率区间的预期", source: "Fed Rate Monitor", frequency: "1 小时" },
+  { id: "fedProbability", label: "Fed Futures 概率分布", purpose: "不同利率区间的市场定价概率", source: "Fed Rate Monitor", frequency: "1 小时" },
+  { id: "fedFunds", label: "Fed Funds Future 价格及隐含利率", purpose: "观察利率期货正在定价的平均利率", source: "Yahoo Finance / Investing", frequency: "1 小时" },
+  { id: "vix", label: "VIX", purpose: "标普 500 短期期权波动率，常用恐慌指标", source: "Yahoo Finance ^VIX", yahoo: "^VIX", frequency: "5 分钟" },
+  { id: "vvix", label: "VVIX", purpose: "VIX 自身的波动率，观察恐慌是否加剧", source: "Yahoo Finance ^VVIX", yahoo: "^VVIX", frequency: "5 分钟" },
+  { id: "vix3m", label: "VIX3M", purpose: "三个月波动率，用于比较中期风险", source: "Yahoo Finance ^VIX3M", yahoo: "^VIX3M", frequency: "5 分钟" },
+  { id: "es", label: "ES 标普期货", purpose: "观察标普 500 盘前和盘后方向", source: "Yahoo Finance ES=F", yahoo: "ES=F", frequency: "5 分钟" },
+  { id: "nq", label: "NQ 纳指期货", purpose: "观察科技股和纳指方向", source: "Yahoo Finance NQ=F", yahoo: "NQ=F", frequency: "5 分钟" },
+  { id: "rty", label: "RTY 罗素期货", purpose: "观察美国小盘股表现", source: "Yahoo Finance RTY=F", yahoo: "RTY=F", frequency: "5 分钟" },
+];
+
+let macroOverviewCache = { at: 0, data: null };
+
+async function getMacroOverview() {
+  if (macroOverviewCache.data && Date.now() - macroOverviewCache.at < MACRO_CACHE_MS) return macroOverviewCache.data;
+  const rows = await mapLimit(macroDefinitions, 6, async (definition) => {
+    if (!definition.yahoo) return { ...definition, status: "pending", value: null, change: null, changePct: null };
+    try {
+      const chart = await yahooChart(definition.yahoo, { range: "5d", interval: "1d" });
+      const meta = chart.meta || {};
+      const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
+      const scale = definition.scale || 1;
+      const value = Number(meta.regularMarketPrice ?? closes.at(-1)) * scale;
+      const previousClose = Number(meta.previousClose ?? closes.at(-2)) * scale;
+      const change = Number.isFinite(previousClose) ? value - previousClose : null;
+      return {
+        ...definition,
+        status: Number.isFinite(value) ? "live" : "unavailable",
+        value: Number.isFinite(value) ? value : null,
+        previousClose: Number.isFinite(previousClose) ? previousClose : null,
+        change,
+        changePct: Number.isFinite(previousClose) && previousClose !== 0 ? (change / previousClose) * 100 : null,
+        asOf: meta.regularMarketTime ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : null,
+      };
+    } catch {
+      return { ...definition, status: "unavailable", value: null, change: null, changePct: null };
+    }
+  });
+  const data = { generatedAt: new Date().toISOString(), rows };
+  macroOverviewCache = { at: Date.now(), data };
+  return data;
+}
+
 async function rpc(method, params) {
   const response = await fetch(BSC_RPC, {
     method: "POST",
@@ -726,6 +786,14 @@ async function handleDxy(req, res) {
   }
 }
 
+async function handleMacroOverview(req, res) {
+  try {
+    json(res, 200, await getMacroOverview());
+  } catch (error) {
+    json(res, 502, { error: error.message });
+  }
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
@@ -760,6 +828,8 @@ const server = http.createServer((req, res) => {
     handleVix(req, res);
   } else if (req.url.startsWith("/api/macro/dxy")) {
     handleDxy(req, res);
+  } else if (req.url.startsWith("/api/macro/all")) {
+    handleMacroOverview(req, res);
   } else {
     serveStatic(req, res);
   }

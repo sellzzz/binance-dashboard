@@ -219,6 +219,10 @@ p {
 }
 
 .macroPanel {
+  display: none;
+}
+
+.macroTablePanel {
   margin-top: 14px;
 }
 
@@ -234,6 +238,55 @@ p {
   gap: 14px;
   padding: 14px;
   background: #f8fafc;
+}
+
+.macroTableWrap {
+  overflow: auto;
+}
+
+.macroTable {
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.macroTable th:nth-child(1),
+.macroTable td:nth-child(1) { width: 17%; }
+.macroTable th:nth-child(2),
+.macroTable td:nth-child(2) { width: 26%; white-space: normal; }
+.macroTable th:nth-child(3),
+.macroTable td:nth-child(3) { width: 25%; white-space: normal; }
+.macroTable th:nth-child(4),
+.macroTable td:nth-child(4) { width: 12%; }
+.macroTable th:nth-child(5),
+.macroTable td:nth-child(5) { width: 10%; }
+.macroTable th:nth-child(6),
+.macroTable td:nth-child(6) { width: 10%; }
+
+.macroTable td {
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.macroName {
+  font-weight: 700;
+}
+
+.macroValue {
+  font-weight: 700;
+}
+
+.macroPending {
+  color: var(--muted);
+}
+
+.macroStatus {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .macroGrid > .vixCard {

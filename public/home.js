@@ -20,6 +20,8 @@ const els = {
   dxyRange: $("dxyRange"),
   dxyYearRange: $("dxyYearRange"),
   dxyStatus: $("dxyStatus"),
+  macroRows: $("macroRows"),
+  macroUpdated: $("macroUpdated"),
 };
 
 function fmtPct(value) {
@@ -194,6 +196,49 @@ async function loadDxy() {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderMacroRows(rows) {
+  els.macroRows.innerHTML = rows.map((row) => {
+    const live = row.status === "live" && Number.isFinite(Number(row.value));
+    const change = Number(row.change);
+    const value = live ? fmtNumber(row.value) : "-";
+    const changeText = Number.isFinite(change) && Number.isFinite(Number(row.changePct))
+      ? `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${Number(row.changePct) >= 0 ? "+" : ""}${Number(row.changePct).toFixed(2)}%)`
+      : row.status === "pending" ? "待接入" : "暂无数据";
+    const valueClass = live ? "macroValue" : "macroPending";
+    const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "macroPending";
+    return `<tr>
+      <td class="macroName">${escapeHtml(row.label)}</td>
+      <td>${escapeHtml(row.purpose)}</td>
+      <td>${escapeHtml(row.source)}</td>
+      <td class="${valueClass}">${value}${row.status === "pending" ? '<span class="macroStatus">待接入</span>' : ""}</td>
+      <td class="${changeClass}">${escapeHtml(changeText)}</td>
+      <td>${escapeHtml(row.frequency)}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function loadMacroOverview() {
+  try {
+    const response = await fetch("/api/macro/all");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Macro indicators unavailable");
+    renderMacroRows(Array.isArray(data.rows) ? data.rows : []);
+    els.macroUpdated.textContent = data.generatedAt ? `更新于 ${fmtTime(data.generatedAt)}` : "已更新";
+  } catch (error) {
+    els.macroUpdated.textContent = error.message;
+    els.macroRows.innerHTML = '<tr><td colspan="6" class="empty">宏观指标读取失败</td></tr>';
+  }
+}
+
 function renderSignals(rows) {
   if (!rows.length) {
     els.list.innerHTML = '<div class="emptySignal">当前没有达到阈值的信号</div>';
@@ -248,8 +293,6 @@ async function loadHome() {
 }
 
 loadHome();
-loadVix();
-loadDxy();
+loadMacroOverview();
 setInterval(loadHome, 60_000);
-setInterval(loadVix, 60_000);
-setInterval(loadDxy, 60_000);
+setInterval(loadMacroOverview, 60_000);
