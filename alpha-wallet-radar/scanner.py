@@ -68,7 +68,10 @@ class AlphaWalletScanner:
         if self._run_lock.locked():
             return False
         self.store.set_state("manual_scan_requested_at", str(int(time.time())))
-        self._wake.set()
+        if self._thread and self._thread.is_alive():
+            self._wake.set()
+        else:
+            threading.Thread(target=self.run_cycle, name="alpha-wallet-manual-scan", daemon=True).start()
         return True
 
     def trigger_token_bootstrap(self, token_address: str) -> bool:

@@ -133,3 +133,13 @@ pm2 save
 ```
 
 Then open `http://server-ip:8787/wallet-radar/`. The radar service stays on localhost; only the main dashboard port needs to be public.
+
+For small servers, start in on-demand mode to avoid an automatic full-chain scan at boot:
+
+```bash
+pm2 delete alpha-wallet-radar
+pm2 start app.py --name alpha-wallet-radar --interpreter python3 -- --host 127.0.0.1 --port 8810 --no-background-scan
+pm2 save
+```
+
+In this mode the page remains available and the scan button runs one controlled cycle when needed.
