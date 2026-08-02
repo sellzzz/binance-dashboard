@@ -106,9 +106,14 @@ async function yahooChart(symbol, params) {
 
 async function getVix() {
   if (vixCache.data && Date.now() - vixCache.at < MACRO_CACHE_MS) return vixCache.data;
-  const chart = await yahooChart("^VIX", { range: "5d", interval: "1d" });
+  const chart = await yahooChart("^VIX", { range: "1y", interval: "1d" });
   const meta = chart.meta || {};
-  const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
+  const quote = chart.indicators?.quote?.[0] || {};
+  const history = (chart.timestamp || []).map((timestamp, index) => ({
+    time: Number(timestamp) * 1000,
+    close: Number(quote.close?.[index]),
+  })).filter((row) => Number.isFinite(row.close));
+  const closes = history.map((row) => row.close);
   const value = Number(meta.regularMarketPrice ?? closes.at(-1));
   const previousClose = Number(meta.previousClose ?? closes.at(-2));
   if (!Number.isFinite(value)) throw new Error("VIX value unavailable");
@@ -128,6 +133,7 @@ async function getVix() {
     asOf: meta.regularMarketTime ? new Date(Number(meta.regularMarketTime) * 1000).toISOString() : new Date().toISOString(),
     fetchedAt: new Date().toISOString(),
     source: "Yahoo Finance",
+    history,
   };
   vixCache = { at: Date.now(), data };
   return data;

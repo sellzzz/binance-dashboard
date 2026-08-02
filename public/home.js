@@ -13,6 +13,7 @@ const els = {
   vixRange: $("vixRange"),
   vixYearRange: $("vixYearRange"),
   vixStatus: $("vixStatus"),
+  vixChart: $("vixChart"),
 };
 
 function fmtPct(value) {
@@ -71,6 +72,80 @@ function renderVix(data) {
   els.vixChange.className = change > 0 ? "negative" : change < 0 ? "positive" : "";
   els.vixStatus.textContent = value >= 30 ? "高波动" : value >= 20 ? "风险升温" : "常态区间";
   els.vixCard.classList.toggle("vixElevated", value >= 20);
+  els.vixChart.dataset.history = JSON.stringify(data.history || []);
+  drawVixChart(data.history || []);
+}
+
+function average(values, period, index) {
+  if (index < period - 1) return null;
+  const slice = values.slice(index - period + 1, index + 1);
+  return slice.reduce((sum, current) => sum + current, 0) / period;
+}
+
+function drawVixChart(history) {
+  if (!els.vixChart || history.length < 2) return;
+  const canvas = els.vixChart;
+  const width = Math.max(320, Math.floor(canvas.clientWidth));
+  const height = Math.max(220, Math.floor(canvas.clientHeight));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  const rows = history.slice(-260);
+  const values = rows.map((row) => row.close);
+  const min = Math.min(...values) - 1;
+  const max = Math.max(...values) + 1;
+  const pad = { top: 14, right: 44, bottom: 22, left: 8 };
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const x = (index) => pad.left + (index / (rows.length - 1)) * plotWidth;
+  const y = (value) => pad.top + ((max - value) / (max - min)) * plotHeight;
+
+  ctx.strokeStyle = "#e5e7eb";
+  ctx.lineWidth = 1;
+  ctx.font = "11px Segoe UI, Microsoft YaHei, sans-serif";
+  for (let step = 0; step <= 4; step += 1) {
+    const value = min + ((max - min) * step) / 4;
+    const lineY = y(value);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, lineY);
+    ctx.lineTo(width - pad.right, lineY);
+    ctx.stroke();
+    ctx.fillStyle = "#64748b";
+    ctx.fillText(value.toFixed(0), width - pad.right + 8, lineY + 4);
+  }
+
+  const drawLine = (series, color, lineWidth) => {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    series.forEach((value, index) => {
+      if (!Number.isFinite(value)) return;
+      if (index === 0 || !Number.isFinite(series[index - 1])) ctx.moveTo(x(index), y(value));
+      else ctx.lineTo(x(index), y(value));
+    });
+    ctx.stroke();
+  };
+
+  drawLine(values, "#111827", 1.4);
+  drawLine(values.map((_, index) => average(values, 20, index)), "#ef4444", 1.1);
+  drawLine(values.map((_, index) => average(values, 50, index)), "#2563eb", 1.1);
+
+  const latest = values.at(-1);
+  const latestY = y(latest);
+  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = "#2563eb";
+  ctx.beginPath();
+  ctx.moveTo(pad.left, latestY);
+  ctx.lineTo(width - pad.right, latestY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#ef4444";
+  ctx.fillRect(width - pad.right + 2, latestY - 9, 42, 18);
+  ctx.fillStyle = "#fff";
+  ctx.fillText(latest.toFixed(2), width - pad.right + 6, latestY + 4);
 }
 
 async function loadVix() {
@@ -143,3 +218,6 @@ loadHome();
 loadVix();
 setInterval(loadHome, 60_000);
 setInterval(loadVix, 60_000);
+window.addEventListener("resize", () => {
+  if (els.vixChart?.dataset.history) drawVixChart(JSON.parse(els.vixChart.dataset.history));
+});
