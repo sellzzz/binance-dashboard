@@ -3,113 +3,74 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Market Data Dashboard</title>
+    <title>Data Monitor Hub</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="toolbar">
-        <div>
-          <h1>Position Monitor</h1>
-          <p>Internal market data dashboard for monitoring position changes and liquidity context.</p>
+    <main class="shell homeShell">
+      <section class="homeHero">
+        <div class="homeIntro">
+          <span class="eyebrow">Data Monitor Hub</span>
+          <h1>数据监控主站</h1>
+          <p>把变化信号、小盘异动、流动性区间和消息推送收在一个入口里。</p>
         </div>
-        <div class="actions">
-          <a class="linkBtn" href="/smallcap.html">Small Cap Monitor</a>
-          <button id="refreshBtn" type="button">刷新</button>
-        </div>
-      </section>
-
-      <section class="controls" aria-label="筛选条件">
-        <label>
-          周期
-          <select id="period">
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="30m">30m</option>
-            <option value="1h">1h</option>
-            <option value="4h" selected>4h</option>
-            <option value="1d">1d</option>
-          </select>
-        </label>
-        <label>
-          对比K线数
-          <input id="points" type="number" min="2" max="30" value="5" />
-        </label>
-        <label>
-          Change Threshold %
-          <input id="threshold" type="number" min="0" max="500" value="30" />
-        </label>
-        <label>
-          Scan Limit
-          <input id="maxSymbols" type="number" min="20" max="500" value="260" />
-        </label>
-      </section>
-
-      <section class="controls extension" aria-label="池市值比例筛选">
-        <label>
-          Liquidity/MCap Min %
-          <input id="liqMin" type="number" min="0" max="100" step="0.1" placeholder="0.5" />
-        </label>
-        <label>
-          Liquidity/MCap Max %
-          <input id="liqMax" type="number" min="0" max="100" step="0.1" placeholder="1" />
-        </label>
-        <button id="liquidityScanBtn" type="button">Filter Liquidity</button>
-        <button id="clearLiquidityBtn" type="button" class="secondary">Clear</button>
-      </section>
-
-      <section class="stats" aria-label="扫描结果概要">
-        <div>
-          <span>Signals</span>
-          <strong id="alertCount">-</strong>
-        </div>
-        <div>
-          <span>Scanned</span>
-          <strong id="scanned">-</strong>
-        </div>
-        <div>
-          <span>Updated</span>
-          <strong id="updated">-</strong>
+        <div class="homeLive" aria-label="当前扫描概览">
+          <div>
+            <span>Signals</span>
+            <strong id="homeSignals">-</strong>
+          </div>
+          <div>
+            <span>Scanned</span>
+            <strong id="homeScanned">-</strong>
+          </div>
+          <div>
+            <span>Updated</span>
+            <strong id="homeUpdated">-</strong>
+          </div>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="homeGrid" aria-label="功能入口">
+        <a class="featureTile primaryTile" href="/position.html">
+          <span class="tileKicker">Core Scanner</span>
+          <strong>Position Change Signals</strong>
+          <p>默认 4h x 5，筛出变化达到阈值的标的，并叠加规模、费率和流动性背景。</p>
+          <span class="tileAction">进入扫描</span>
+        </a>
+
+        <a class="featureTile" href="/smallcap.html">
+          <span class="tileKicker">Small Cap</span>
+          <strong>小盘标的监控</strong>
+          <p>独立关注低规模标的，适合找早期异动、变化放大和费率异常组合。</p>
+          <span class="tileAction">查看列表</span>
+        </a>
+
+        <a class="featureTile" href="/position.html#liquidity">
+          <span class="tileKicker">Liquidity Range</span>
+          <strong>流动性区间图</strong>
+          <p>对有外部流动性的标的，点击区间图查看当前价格附近的分布结构。</p>
+          <span class="tileAction">打开工具</span>
+        </a>
+
+        <section class="featureTile staticTile">
+          <span class="tileKicker">Telegram</span>
+          <strong>每小时信号推送</strong>
+          <p>服务器上运行独立推送进程，达到阈值时把摘要发送到你的消息端。</p>
+          <code>pm2 status market-signal-push</code>
+        </section>
+      </section>
+
+      <section class="panel homePanel">
         <div class="panelHead">
-          <h2>Position Change Signals</h2>
-          <span id="status">等待扫描</span>
+          <div>
+            <h2>Live Signals</h2>
+            <p id="homeStatus">正在读取当前信号</p>
+          </div>
+          <a class="linkBtn" href="/position.html">完整表格</a>
         </div>
-        <div class="tableWrap">
-          <table>
-            <thead id="alertsHead"></thead>
-            <tbody id="alertsBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panelHead">
-          <h2>Position Change Top 30</h2>
-        </div>
-        <div class="tableWrap">
-          <table>
-            <thead id="topHead"></thead>
-            <tbody id="topBody"></tbody>
-          </table>
-        </div>
+        <div id="homeSignalList" class="signalList"></div>
       </section>
     </main>
-
-    <dialog id="liquidityDialog">
-      <div class="dialogHead">
-        <div>
-          <h2 id="liqTitle">Liquidity Range</h2>
-          <p id="liqMeta"></p>
-        </div>
-        <button id="closeDialog" type="button" class="secondary">Close</button>
-      </div>
-      <div id="liqChart" class="liqChart"></div>
-      <div id="liqStatus" class="liqStatus"></div>
-    </dialog>
-    <script src="/app.js" type="module"></script>
+    <script src="/home.js" type="module"></script>
   </body>
 </html>
