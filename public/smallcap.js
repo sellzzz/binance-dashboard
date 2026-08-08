@@ -6,6 +6,7 @@ import {
   fmtRatio,
   fmtTime,
   fmtUsd,
+  escapeHtml,
   renderLiquidityChart,
   shortPrice,
 } from "/shared.js";
@@ -39,16 +40,17 @@ const els = {
 
 let rows = [];
 let sortState = { key: "changePct", dir: "desc" };
+let scanController = null;
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">Chart</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">Chart</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
   if (type === "pct") return fmtPct(row[key]);
   if (type === "compact") return fmtCompact(row[key]);
   if (type === "time") return `${fmtTime(row.startTime)} → ${fmtTime(row.endTime)}`;
-  return row[key] || "-";
+  return escapeHtml(row[key] || "-");
 }
 
 function renderHead() {
@@ -129,11 +131,14 @@ async function scan() {
     smallCapMinChange: controls.smallCapMinChange.value || "0",
   });
 
+  scanController?.abort();
+  const controller = new AbortController();
+  scanController = controller;
   els.refreshBtn.disabled = true;
   els.status.textContent = "Scanning...";
 
   try {
-    const response = await fetch(`/api/scan?${params}`);
+    const response = await fetch(`/api/scan?${params}`, { signal: controller.signal });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Scan failed");
     rows = data.smallCaps || [];
@@ -147,9 +152,13 @@ async function scan() {
     els.status.textContent = `MCap ≤ ${fmtUsd(data.smallCap.maxUsd)} · Change ≥ ${data.smallCap.minChangePct}% · ${data.period} × ${data.points}`;
     renderRows();
   } catch (error) {
+    if (error.name === "AbortError") return;
     els.status.textContent = error.message;
   } finally {
-    els.refreshBtn.disabled = false;
+    if (scanController === controller) {
+      scanController = null;
+      els.refreshBtn.disabled = false;
+    }
   }
 }
 

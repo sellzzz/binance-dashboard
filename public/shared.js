@@ -14,6 +14,15 @@ export const columns = [
   ["endTime", "Window", "time"],
 ];
 
+export function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 export function fmtPct(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";

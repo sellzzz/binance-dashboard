@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, normalize, resolve, sep } from "node:path";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { Interface } from "ethers";
 
@@ -12,6 +12,7 @@ const DEXSCREENER_API = "https://api.dexscreener.com";
 const BSC_RPC = process.env.BSC_RPC || "https://bsc-dataseed.binance.org";
 const CACHE_MS = 30_000;
 const MACRO_CACHE_MS = 60_000;
+const FETCH_TIMEOUT_MS = 15_000;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
 const CONCURRENCY = 12;
@@ -23,6 +24,7 @@ let bscContractCache = { at: 0, data: new Map() };
 let bscPoolCache = new Map();
 let pancakeV3PoolCache = new Map();
 let scanCache = new Map();
+let pancakeRangeCache = new Map();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 
@@ -49,8 +51,20 @@ function json(res, status, payload) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
   });
   res.end(JSON.stringify(payload));
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function parseNumber(value, fallback, min, max) {
@@ -59,8 +73,12 @@ function parseNumber(value, fallback, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
+function parseInteger(value, fallback, min, max) {
+  return Math.round(parseNumber(value, fallback, min, max));
+}
+
 async function binance(path) {
-  const response = await fetch(`${BINANCE_FAPI}${path}`, {
+  const response = await fetchWithTimeout(`${BINANCE_FAPI}${path}`, {
     headers: { "user-agent": "oi-dashboard/1.0" },
   });
   if (!response.ok) {
@@ -71,7 +89,7 @@ async function binance(path) {
 }
 
 async function coingecko(path) {
-  const response = await fetch(`${COINGECKO_API}${path}`, {
+  const response = await fetchWithTimeout(`${COINGECKO_API}${path}`, {
     headers: { "user-agent": "oi-dashboard/1.0" },
   });
   if (!response.ok) {
@@ -82,7 +100,7 @@ async function coingecko(path) {
 }
 
 async function dexscreener(path) {
-  const response = await fetch(`${DEXSCREENER_API}${path}`, {
+  const response = await fetchWithTimeout(`${DEXSCREENER_API}${path}`, {
     headers: { "user-agent": "oi-dashboard/1.0" },
   });
   if (!response.ok) {
@@ -94,7 +112,7 @@ async function dexscreener(path) {
 
 async function yahooChart(symbol, params) {
   const query = new URLSearchParams(params);
-  const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`, {
+  const response = await fetchWithTimeout(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`, {
     headers: { "user-agent": "market-data-dashboard/1.0" },
   });
   if (!response.ok) {
@@ -180,7 +198,7 @@ async function getFredMacro(definition) {
     limit: "2",
   });
   try {
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
     if (!response.ok) throw new Error(`FRED ${response.status}`);
     const payload = await response.json();
     const observations = (payload.observations || [])
@@ -201,7 +219,7 @@ async function getFedWatchMacros() {
   const definitions = macroDefinitions.filter((item) => item.fedField);
   if (!process.env.CME_FEDWATCH_OAUTH_TOKEN) return definitions.map((definition) => unavailableMacro(definition));
   try {
-    const response = await fetch(`${CME_FEDWATCH_API.replace(/\/$/, "")}/forecasts`, {
+    const response = await fetchWithTimeout(`${CME_FEDWATCH_API.replace(/\/$/, "")}/forecasts`, {
       headers: {
         Authorization: `Bearer ${process.env.CME_FEDWATCH_OAUTH_TOKEN}`,
         Accept: "application/json",
@@ -300,7 +318,7 @@ async function getMacroOverview() {
 }
 
 async function rpc(method, params) {
-  const response = await fetch(BSC_RPC, {
+  const response = await fetchWithTimeout(BSC_RPC, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
@@ -487,6 +505,9 @@ function wordPosition(compressedTick) {
 }
 
 async function buildPancakeLiquidityRange(symbol) {
+  const cached = pancakeRangeCache.get(symbol);
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.data;
+
   const symbols = await getUsdtPerpetualSymbols();
   const symbolInfo = symbols.find((s) => s.symbol === symbol);
   if (!symbolInfo) throw new Error("Unknown Binance futures symbol");
@@ -588,7 +609,7 @@ async function buildPancakeLiquidityRange(symbol) {
   }
 
   const currentPrice0 = tickToPrice(currentTick, decimals0, decimals1);
-  return {
+  const data = {
     symbol,
     hasPancakeV3Pool: true,
     pool,
@@ -602,6 +623,8 @@ async function buildPancakeLiquidityRange(symbol) {
     liquidityUsd: poolInfo.liquidityUsd,
     bins: bins.sort((a, b) => a.price - b.price),
   };
+  pancakeRangeCache.set(symbol, { at: Date.now(), data });
+  return data;
 }
 
 async function getMarketCaps() {
@@ -610,15 +633,10 @@ async function getMarketCaps() {
   }
 
   const pages = Array.from({ length: 10 }, (_, index) => index + 1);
-  const rows = (
-    await Promise.all(
-      pages.map((page) =>
-        coingecko(
-          `/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&sparkline=false`
-        )
-      )
-    )
-  ).flat();
+  const pageRows = await mapLimit(pages, 3, (page) =>
+    coingecko(`/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&sparkline=false`)
+  );
+  const rows = pageRows.flatMap((page) => (Array.isArray(page) ? page : []));
 
   const caps = new Map();
   for (const coin of rows) {
@@ -661,7 +679,13 @@ async function getUsdtPerpetualSymbols() {
   if (Date.now() - symbolsCache.at < 10 * 60_000 && symbolsCache.data.length) {
     return symbolsCache.data;
   }
-  const info = await binance("/fapi/v1/exchangeInfo");
+  const [info, tickers] = await Promise.all([
+    binance("/fapi/v1/exchangeInfo"),
+    binance("/fapi/v1/ticker/24hr"),
+  ]);
+  const volumeBySymbol = new Map(
+    (Array.isArray(tickers) ? tickers : []).map((ticker) => [ticker.symbol, Number(ticker.quoteVolume)])
+  );
   const symbols = info.symbols
     .filter((s) => s.contractType === "PERPETUAL")
     .filter((s) => s.quoteAsset === "USDT")
@@ -670,8 +694,9 @@ async function getUsdtPerpetualSymbols() {
       symbol: s.symbol,
       baseAsset: s.baseAsset,
       quoteAsset: s.quoteAsset,
+      quoteVolume24h: Number.isFinite(volumeBySymbol.get(s.symbol)) ? volumeBySymbol.get(s.symbol) : null,
     }))
-    .sort((a, b) => a.symbol.localeCompare(b.symbol));
+    .sort((a, b) => (b.quoteVolume24h || 0) - (a.quoteVolume24h || 0) || a.symbol.localeCompare(b.symbol));
   symbolsCache = { at: Date.now(), data: symbols };
   return symbols;
 }
@@ -742,9 +767,9 @@ async function getOpenInterestChange(symbolInfo, period, points) {
 async function handleScan(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const period = url.searchParams.get("period") || "4h";
-  const points = parseNumber(url.searchParams.get("points"), 5, 2, 30);
+  const points = parseInteger(url.searchParams.get("points"), 5, 2, 30);
   const threshold = parseNumber(url.searchParams.get("threshold"), 30, 0, 500);
-  const maxSymbols = parseNumber(url.searchParams.get("maxSymbols"), 260, 20, 500);
+  const maxSymbols = parseInteger(url.searchParams.get("maxSymbols"), 260, 20, 500);
   const smallCapMaxUsd = parseNumber(url.searchParams.get("smallCapMaxUsd"), 100_000_000, 1_000_000, 5_000_000_000);
   const smallCapMinChange = parseNumber(url.searchParams.get("smallCapMinChange"), 0, -100, 500);
   const liqMinRaw = url.searchParams.get("liqMin");
@@ -757,8 +782,20 @@ async function handleScan(req, res) {
   if (!allowedPeriods.has(period)) {
     return json(res, 400, { error: "Unsupported period" });
   }
+  if (liqMin !== null && liqMax !== null && liqMin > liqMax) {
+    return json(res, 400, { error: "Liquidity minimum cannot exceed maximum" });
+  }
 
-  const key = `${period}:${points}:${threshold}:${maxSymbols}`;
+  const key = [
+    period,
+    points,
+    threshold,
+    maxSymbols,
+    smallCapMaxUsd,
+    smallCapMinChange,
+    liqMin ?? "",
+    liqMax ?? "",
+  ].join(":");
   const cached = scanCache.get(key);
   if (cached && Date.now() - cached.at < CACHE_MS) {
     return json(res, 200, cached.data);
@@ -870,11 +907,30 @@ async function handleMacroOverview(req, res) {
   }
 }
 
+function handleHealth(req, res) {
+  json(res, 200, {
+    status: "ok",
+    uptimeSeconds: Math.round(process.uptime()),
+    generatedAt: new Date().toISOString(),
+    caches: {
+      symbols: symbolsCache.data.length,
+      marketCaps: marketCapCache.data.size,
+      fundingRates: fundingCache.data.size,
+      scans: scanCache.size,
+    },
+  });
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const pathname = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
-  const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, "");
-  const filePath = join(PUBLIC_DIR, safePath);
+  const safePath = normalize(pathname).replace(/^[/\\]+/, "");
+  const filePath = resolve(PUBLIC_DIR, safePath);
+  if (filePath !== resolve(PUBLIC_DIR) && !filePath.startsWith(`${resolve(PUBLIC_DIR)}${sep}`)) {
+    res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Forbidden");
+    return;
+  }
   const types = {
     ".html": "text/html; charset=utf-8",
     ".css": "text/css; charset=utf-8",
@@ -882,7 +938,12 @@ async function serveStatic(req, res) {
   };
   try {
     const content = await readFile(filePath);
-    res.writeHead(200, { "content-type": types[extname(filePath)] || "application/octet-stream" });
+    res.writeHead(200, {
+      "content-type": types[extname(filePath)] || "application/octet-stream",
+      "cache-control": "no-cache",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "no-referrer",
+    });
     res.end(content);
   } catch {
     res.writeHead(404);
@@ -891,7 +952,9 @@ async function serveStatic(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url.startsWith("/api/liquidity-range")) {
+  if (req.url === "/api/health" || req.url === "/healthz") {
+    handleHealth(req, res);
+  } else if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
     if (!symbol) return json(res, 400, { error: "Missing symbol" });
@@ -913,4 +976,13 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`OI dashboard running at http://localhost:${PORT}`);
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Set PORT to another value or stop the existing service.`);
+  } else {
+    console.error(error);
+  }
+  process.exitCode = 1;
 });

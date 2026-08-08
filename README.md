@@ -26,6 +26,12 @@ http://localhost:8787/
 http://localhost:8787/smallcap.html
 ```
 
+服务状态检查：
+
+```text
+http://localhost:8787/api/health
+```
+
 指定端口：
 
 ```bash

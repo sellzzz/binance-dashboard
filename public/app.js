@@ -46,6 +46,7 @@ const els = {
 };
 
 let liquidityFilterEnabled = false;
+let scanController = null;
 let latestRows = { alerts: [], top: [] };
 let sortState = {
   alerts: { key: "changePct", dir: "desc" },
@@ -99,14 +100,23 @@ function fmtTime(ms) {
 }
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${row.symbol}" type="button">Chart</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">Chart</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
   if (type === "pct") return fmtPct(row[key]);
   if (type === "compact") return fmtCompact(row[key]);
   if (type === "time") return `${fmtTime(row.startTime)} → ${fmtTime(row.endTime)}`;
-  return row[key] || "-";
+  return escapeHtml(row[key] || "-");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function renderHead(target, tableName) {
@@ -226,12 +236,15 @@ async function scan() {
     if (controls.liqMax.value !== "") params.set("liqMax", controls.liqMax.value);
   }
 
+  scanController?.abort();
+  const controller = new AbortController();
+  scanController = controller;
   els.refreshBtn.disabled = true;
   els.liquidityScanBtn.disabled = true;
   els.status.textContent = "Scanning...";
 
   try {
-    const response = await fetch(`/api/scan?${params}`);
+    const response = await fetch(`/api/scan?${params}`, { signal: controller.signal });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Scan failed");
 
@@ -250,11 +263,15 @@ async function scan() {
     latestRows = { alerts: data.alerts, top: data.topRisers };
     rerenderTables();
   } catch (error) {
+    if (error.name === "AbortError") return;
     els.status.textContent = error.message;
     renderRows(els.alertsBody, [], "Scan failed. Try again later.");
   } finally {
-    els.refreshBtn.disabled = false;
-    els.liquidityScanBtn.disabled = false;
+    if (scanController === controller) {
+      scanController = null;
+      els.refreshBtn.disabled = false;
+      els.liquidityScanBtn.disabled = false;
+    }
   }
 }
 
