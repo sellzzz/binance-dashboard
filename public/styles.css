@@ -913,6 +913,61 @@ tbody tr:hover {
   border-color: var(--line);
 }
 
+/* Keep page-specific surfaces aligned with the dark dashboard shell. */
+.stats div {
+  background: #111923;
+}
+
+.focusPanel {
+  border-color: #2b4f79;
+}
+
+.focusPanel .panelHead {
+  background: #14253a;
+}
+
+th {
+  background: #151f2c;
+}
+
+.miniBtn {
+  background: #141f2d;
+  border-color: #304257;
+}
+
+dialog {
+  background: #111923;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.smallcapToolbar .linkBtn {
+  background: #141f2d;
+}
+
+.smallcapControls,
+.smallcapStats,
+.smallcapPanel {
+  border-color: #2b3e56;
+}
+
+.smallcapStats div:first-child {
+  background: #182746;
+}
+
+.smallcapPanel .panelHead {
+  background: #14253a;
+}
+
+.smallcapPanel tbody tr:hover {
+  background: #182638;
+}
+
+.smallcapPanel .miniBtn {
+  background: #172a4b;
+  border-color: #365e9d;
+  color: var(--blue);
+}
+
 .macroStatus {
   background: #263547;
   color: #aab9ca;
