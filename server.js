@@ -198,8 +198,10 @@ function touchesZone(candle, zone) {
 function buildReversalSignal(asset, candles) {
   if (candles.length < 20) return { status: "insufficient_data", current: null, signals: [], zones: [] };
   const current = candles.at(-1);
+  const previous = candles.at(-2);
   const currentIndex = candles.length - 1;
   const minAgeBars = asset.source === "binance" ? 14 : 10;
+  const proximityPct = 1.2;
   const candidates = [];
 
   for (const side of ["support", "resistance"]) {
@@ -211,16 +213,21 @@ function buildReversalSignal(asset, candles) {
         ? { low: point - width * 0.35, high: point + width }
         : { low: point - width, high: point + width * 0.35 };
       const previousBars = candles.slice(index + 3, currentIndex);
-      const hadPriorTouch = previousBars.some((candle) => touchesZone(candle, zone));
+      const priorTouchCount = previousBars.filter((candle) => touchesZone(candle, zone)).length;
+      const hadPriorTouch = priorTouchCount > 0;
       const isTouching = touchesZone(current, zone);
       const distance = current.close < zone.low
         ? ((zone.low - current.close) / current.close) * 100
         : current.close > zone.high
           ? ((current.close - zone.high) / current.close) * 100
           : 0;
+      const movingToward = side === "support"
+        ? current.close < previous.close
+        : current.close > previous.close;
+      const isApproaching = !isTouching && movingToward && Math.abs(distance) <= proximityPct;
       candidates.push({
         type: side === "support" ? "support-touch" : "resistance-touch",
-        label: side === "support" ? "支撑区首次触及" : "阻力区首次触及",
+        label: side === "support" ? "支撑区第二次确认" : "阻力区第二次确认",
         direction: side === "support" ? "potential-rebound" : "potential-pullback",
         zoneLow: zone.low,
         zoneHigh: zone.high,
@@ -232,20 +239,25 @@ function buildReversalSignal(asset, candles) {
         wickSize: side === "support" ? current.low : current.high,
         isTouching,
         isFirstTouch: isTouching && !hadPriorTouch,
+        isSecondTouch: isTouching && priorTouchCount === 1,
+        isApproaching,
+        isFirstApproach: isApproaching && priorTouchCount === 0,
+        isSecondApproach: isApproaching && priorTouchCount === 1,
+        priorTouchCount,
         hadPriorTouch,
       });
     }
   }
 
   const signals = candidates
-    .filter((candidate) => candidate.isFirstTouch)
+    .filter((candidate) => candidate.isSecondTouch || candidate.isSecondApproach)
     .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars);
   const zones = candidates
     .slice()
     .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars)
     .slice(0, 6);
   return {
-    status: signals.length ? "first-touch" : "waiting",
+    status: signals.length ? (signals.some((signal) => signal.isSecondTouch) ? "second-touch" : "approaching") : "waiting",
     current: { price: current.close, time: current.timestamp },
     signals: signals.slice(0, 2),
     zones,
@@ -276,6 +288,7 @@ async function handleReversalScan(req, res) {
       generatedAt: new Date().toISOString(),
       timeframe: "1D",
       minimumAgeBars: { stocks: 10, crypto: 14 },
+      proximityPct: 1.2,
       minimumAgeText: "股票 10 个交易日 / 加密资产 14 根日线",
       rows,
       signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),

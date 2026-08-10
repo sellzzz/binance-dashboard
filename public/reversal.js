@@ -42,7 +42,9 @@ function renderSignals(signals) {
   }
   els.signalList.innerHTML = signals.map((signal) => {
     const support = signal.type === "support-touch";
+    const approaching = signal.isSecondApproach && !signal.isSecondTouch;
     return `<article class="reversalSignal ${support ? "isSupport" : "isResistance"}">
+      <div class="signalState">${approaching ? "\u63a5\u8fd1\u9884\u8b66" : "\u7b2c\u4e8c\u6b21\u89e6\u53ca"}</div>
       <div class="reversalSignalTop"><span class="signalBadge">${support ? "支撑 · 潜在反弹" : "阻力 · 潜在回落"}</span><strong>${escapeHtml(signal.symbol)}</strong><span class="signalMarket">${escapeHtml(signal.market)}</span></div>
       <div class="reversalSignalGrid">
         <div><span>当前价格</span><b>${fmtPrice(signal.current?.price)}</b></div>
@@ -61,7 +63,7 @@ function renderWatch(rows) {
     return;
   }
   els.watchBody.innerHTML = rows.map((row) => {
-    const firstTouch = row.status === "first-touch";
+    const firstTouch = row.status === "second-touch" || row.status === "approaching";
     const zone = row.zones?.[0];
     return `<tr>
       <td class="symbol">${escapeHtml(row.symbol)}</td>
@@ -88,7 +90,7 @@ async function scan() {
     els.signalCount.textContent = data.signals.length;
     els.watchCount.textContent = data.rows.length;
     els.updated.textContent = new Date(data.generatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-    els.status.textContent = `日线 · ${data.minimumAgeText} · 首次重返触发提醒`;
+    els.status.textContent = `1D / ${data.minimumAgeText} / second revisit + ${data.proximityPct}% proximity warning`;
     renderSignals(data.signals);
     renderWatch(data.rows);
   } catch (error) {
