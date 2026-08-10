@@ -134,6 +134,20 @@ const reversalPresets = new Map([
   ["XAGUSD", { symbol: "XAGUSD", name: "白银", market: "贵金属", source: "yahoo", sourceSymbol: "SI=F" }],
   ["BTCUSDT", { symbol: "BTCUSDT", name: "Bitcoin", market: "加密资产", source: "binance", sourceSymbol: "BTCUSDT" }],
   ["ETHUSDT", { symbol: "ETHUSDT", name: "Ethereum", market: "加密资产", source: "binance", sourceSymbol: "ETHUSDT" }],
+  ["BNBUSDT", { symbol: "BNBUSDT", name: "BNB", market: "加密资产", source: "binance", sourceSymbol: "BNBUSDT" }],
+  ["SOLUSDT", { symbol: "SOLUSDT", name: "Solana", market: "加密资产", source: "binance", sourceSymbol: "SOLUSDT" }],
+  ["XRPUSDT", { symbol: "XRPUSDT", name: "XRP", market: "加密资产", source: "binance", sourceSymbol: "XRPUSDT" }],
+  ["DOGEUSDT", { symbol: "DOGEUSDT", name: "Dogecoin", market: "加密资产", source: "binance", sourceSymbol: "DOGEUSDT" }],
+  ["ADAUSDT", { symbol: "ADAUSDT", name: "Cardano", market: "加密资产", source: "binance", sourceSymbol: "ADAUSDT" }],
+  ["SUIUSDT", { symbol: "SUIUSDT", name: "Sui", market: "加密资产", source: "binance", sourceSymbol: "SUIUSDT" }],
+  ["AVAXUSDT", { symbol: "AVAXUSDT", name: "Avalanche", market: "加密资产", source: "binance", sourceSymbol: "AVAXUSDT" }],
+  ["LINKUSDT", { symbol: "LINKUSDT", name: "Chainlink", market: "加密资产", source: "binance", sourceSymbol: "LINKUSDT" }],
+  ["TRXUSDT", { symbol: "TRXUSDT", name: "TRON", market: "加密资产", source: "binance", sourceSymbol: "TRXUSDT" }],
+  ["LTCUSDT", { symbol: "LTCUSDT", name: "Litecoin", market: "加密资产", source: "binance", sourceSymbol: "LTCUSDT" }],
+  ["AAVEUSDT", { symbol: "AAVEUSDT", name: "Aave", market: "加密资产", source: "binance", sourceSymbol: "AAVEUSDT" }],
+  ["ARBUSDT", { symbol: "ARBUSDT", name: "Arbitrum", market: "加密资产", source: "binance", sourceSymbol: "ARBUSDT" }],
+  ["OPUSDT", { symbol: "OPUSDT", name: "Optimism", market: "加密资产", source: "binance", sourceSymbol: "OPUSDT" }],
+  ["WIFUSDT", { symbol: "WIFUSDT", name: "dogwifhat", market: "加密资产", source: "binance", sourceSymbol: "WIFUSDT" }],
   ["PENGUUSDT", { symbol: "PENGUUSDT", name: "PENGU", market: "加密资产", source: "binance", sourceSymbol: "PENGUUSDT" }],
   ["BUSDT", { symbol: "BUSDT", name: "B", market: "加密资产", source: "binance", sourceSymbol: "BUSDT" }],
 ]);
@@ -266,11 +280,11 @@ function buildReversalSignal(asset, candles) {
 
 async function handleReversalScan(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const requested = (url.searchParams.get("symbols") || "1810.HK,XAUUSD,XAGUSD,BTCUSDT,ETHUSDT,PENGUUSDT,BUSDT")
+  const requested = (url.searchParams.get("symbols") || "1810.HK,XAUUSD,XAGUSD,BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,SUIUSDT,AVAXUSDT,LINKUSDT,TRXUSDT,LTCUSDT,AAVEUSDT,ARBUSDT,OPUSDT,WIFUSDT,PENGUUSDT")
     .split(",")
     .map(resolveReversalAsset)
     .filter(Boolean)
-    .slice(0, 12);
+    .slice(0, 20);
   const key = requested.map((asset) => asset.symbol).join(",");
   const cached = reversalCache.get(key);
   if (cached && Date.now() - cached.at < REVERSAL_CACHE_MS) return json(res, 200, cached.data);
