@@ -7,6 +7,7 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 const scanUrl = process.env.SIGNAL_SCAN_URL || DEFAULT_SCAN_URL;
 const intervalMs = Number(process.env.SIGNAL_INTERVAL_MS || DEFAULT_INTERVAL_MS);
 const once = process.argv.includes("--once");
+const REQUEST_TIMEOUT_MS = 15_000;
 
 if (!token || !chatId) {
   console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
@@ -58,6 +59,16 @@ function fmtTime(value) {
   }).format(new Date(value));
 }
 
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function buildMessage(data) {
   const alerts = Array.isArray(data.alerts) ? data.alerts : [];
   const generatedAt = data.generatedAt ? fmtTime(data.generatedAt) : fmtTime(Date.now());
@@ -89,7 +100,7 @@ function buildMessage(data) {
 }
 
 async function sendTelegram(text) {
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  const response = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -106,7 +117,7 @@ async function sendTelegram(text) {
 }
 
 async function run() {
-  const response = await fetch(scanUrl);
+  const response = await fetchWithTimeout(scanUrl);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `Scan ${response.status}`);
   await sendTelegram(buildMessage(data));

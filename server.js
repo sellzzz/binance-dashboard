@@ -13,6 +13,7 @@ const BSC_RPC = process.env.BSC_RPC || "https://bsc-dataseed.binance.org";
 const CACHE_MS = 30_000;
 const MACRO_CACHE_MS = 60_000;
 const FETCH_TIMEOUT_MS = 15_000;
+const MAX_SCAN_CACHE = 60;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
 const CONCURRENCY = 12;
@@ -877,6 +878,10 @@ async function handleScan(req, res) {
       topRisers,
     };
     scanCache.set(key, { at: Date.now(), data: payload });
+    while (scanCache.size > MAX_SCAN_CACHE) {
+      const oldestKey = scanCache.keys().next().value;
+      scanCache.delete(oldestKey);
+    }
     json(res, 200, payload);
   } catch (error) {
     json(res, 502, { error: error.message });

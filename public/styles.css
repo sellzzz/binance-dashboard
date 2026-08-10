@@ -968,6 +968,11 @@ dialog {
   color: var(--blue);
 }
 
+.vixElevated {
+  background: #2a201b;
+  border-color: #7a4b2d;
+}
+
 .macroStatus {
   background: #263547;
   color: #aab9ca;
