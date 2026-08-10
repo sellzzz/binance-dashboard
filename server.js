@@ -132,7 +132,8 @@ async function getVix() {
   const meta = chart.meta || {};
   const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
   const value = Number(meta.regularMarketPrice ?? closes.at(-1));
-  const previousClose = Number(meta.previousClose ?? closes.at(-2));
+  const metaPreviousClose = Number(meta.previousClose);
+  const previousClose = metaPreviousClose > 0 ? metaPreviousClose : Number(closes.at(-2));
   if (!Number.isFinite(value)) throw new Error("VIX value unavailable");
   const change = Number.isFinite(previousClose) ? value - previousClose : null;
   const changePct = Number.isFinite(previousClose) && previousClose !== 0 ? (change / previousClose) * 100 : null;
@@ -161,7 +162,8 @@ async function getDxy() {
   const meta = chart.meta || {};
   const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
   const value = Number(meta.regularMarketPrice ?? closes.at(-1));
-  const previousClose = Number(meta.previousClose ?? closes.at(-2));
+  const metaPreviousClose = Number(meta.previousClose);
+  const previousClose = metaPreviousClose > 0 ? metaPreviousClose : Number(closes.at(-2));
   if (!Number.isFinite(value)) throw new Error("DXY value unavailable");
   const change = Number.isFinite(previousClose) ? value - previousClose : null;
   const changePct = Number.isFinite(previousClose) && previousClose !== 0 ? (change / previousClose) * 100 : null;
@@ -293,7 +295,8 @@ async function getMacroOverview() {
       const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
       const scale = definition.scale || 1;
       const value = Number(meta.regularMarketPrice ?? closes.at(-1)) * scale;
-      const previousClose = Number(meta.previousClose ?? closes.at(-2)) * scale;
+      const metaPreviousClose = Number(meta.previousClose);
+      const previousClose = (metaPreviousClose > 0 ? metaPreviousClose : Number(closes.at(-2))) * scale;
       const change = Number.isFinite(previousClose) ? value - previousClose : null;
       return {
         ...definition,

@@ -1026,3 +1026,143 @@ dialog {
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
   }
 }
+
+/* Shared navigation and dashboard polish */
+.siteBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 62px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d151f;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brandMark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #3d6fab;
+  border-radius: 8px;
+  background: #182d4c;
+  color: #9bc1ff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.brandCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.brandCopy strong {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.brandCopy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.siteNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #111923;
+}
+
+.siteNav a {
+  padding: 8px 12px;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.siteNav a:hover,
+.siteNav a.active {
+  background: #20344d;
+  color: #dceaff;
+}
+
+.macroPanel {
+  display: block;
+  margin-top: 14px;
+}
+
+.macroPanel .macroGrid {
+  background: #0d151f;
+}
+
+.macroGrid > .vixCard {
+  background: #111923;
+  border-color: #2b3e56;
+}
+
+.macroGrid > .vixCard:first-child {
+  border-top: 2px solid #f0a04b;
+}
+
+.macroGrid > .vixCard:last-child {
+  border-top: 2px solid #43c7b5;
+}
+
+.homeIntro {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.homeLive strong {
+  color: #f5f8ff;
+}
+
+.panelHead h2 {
+  font-weight: 750;
+}
+
+@media (max-width: 760px) {
+  .controls.extension {
+    grid-template-columns: 1fr;
+  }
+
+  .siteBar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .siteNav {
+    width: 100%;
+  }
+
+  .siteNav a {
+    flex: 1;
+    text-align: center;
+  }
+
+  .homeIntro {
+    min-height: 160px;
+  }
+}

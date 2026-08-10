@@ -3,20 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Position Change Signals</title>
+    <title>仓位变化信号 · Market Monitor</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
+      <header class="siteBar">
+        <a class="brand" href="/" aria-label="返回数据监控主站">
+          <span class="brandMark">M</span>
+          <span class="brandCopy"><strong>Market Monitor</strong><small>Signal intelligence</small></span>
+        </a>
+        <nav class="siteNav" aria-label="主导航">
+          <a href="/">总览</a>
+          <a class="active" href="/position.html">仓位信号</a>
+          <a href="/smallcap.html">低市值</a>
+        </nav>
+      </header>
       <section class="toolbar">
         <div>
-          <h1>Position Monitor</h1>
-          <p>Internal market data dashboard for monitoring position changes and liquidity context.</p>
+          <h1>仓位变化信号</h1>
+          <p>监控合约仓位变化、资金费率与流动性背景，快速定位异常增仓标的。</p>
         </div>
         <div class="actions">
-          <a class="linkBtn" href="/">主站</a>
-          <a class="linkBtn" href="/smallcap.html">Small Cap Monitor</a>
-          <button id="refreshBtn" type="button">刷新</button>
+          <a class="linkBtn" href="/">总览</a>
+          <a class="linkBtn" href="/smallcap.html">低市值监控</a>
+          <button id="refreshBtn" type="button">刷新扫描</button>
         </div>
       </section>
 
@@ -37,39 +48,39 @@
           <input id="points" type="number" min="2" max="30" value="5" />
         </label>
         <label>
-          Change Threshold %
+          变化阈值 %
           <input id="threshold" type="number" min="0" max="500" value="30" />
         </label>
         <label>
-          Scan Limit
+          扫描数量
           <input id="maxSymbols" type="number" min="20" max="500" value="260" />
         </label>
       </section>
 
       <section id="liquidity" class="controls extension" aria-label="池市值比例筛选">
         <label>
-          Liquidity/MCap Min %
+          流动性/市值最小 %
           <input id="liqMin" type="number" min="0" max="100" step="0.1" placeholder="0.5" />
         </label>
         <label>
-          Liquidity/MCap Max %
+          流动性/市值最大 %
           <input id="liqMax" type="number" min="0" max="100" step="0.1" placeholder="1" />
         </label>
-        <button id="liquidityScanBtn" type="button">Filter Liquidity</button>
-        <button id="clearLiquidityBtn" type="button" class="secondary">Clear</button>
+        <button id="liquidityScanBtn" type="button">筛选流动性</button>
+        <button id="clearLiquidityBtn" type="button" class="secondary">清除筛选</button>
       </section>
 
       <section class="stats" aria-label="扫描结果概要">
         <div>
-          <span>Signals</span>
+          <span>信号数</span>
           <strong id="alertCount">-</strong>
         </div>
         <div>
-          <span>Scanned</span>
+          <span>已扫描</span>
           <strong id="scanned">-</strong>
         </div>
         <div>
-          <span>Updated</span>
+          <span>更新时间</span>
           <strong id="updated">-</strong>
         </div>
       </section>
@@ -89,7 +100,7 @@
 
       <section class="panel">
         <div class="panelHead">
-          <h2>Position Change Top 30</h2>
+          <h2>仓位变化 Top 30</h2>
         </div>
         <div class="tableWrap">
           <table>
@@ -103,10 +114,10 @@
     <dialog id="liquidityDialog">
       <div class="dialogHead">
         <div>
-          <h2 id="liqTitle">Liquidity Range</h2>
+          <h2 id="liqTitle">流动性区间</h2>
           <p id="liqMeta"></p>
         </div>
-        <button id="closeDialog" type="button" class="secondary">Close</button>
+        <button id="closeDialog" type="button" class="secondary">关闭</button>
       </div>
       <div id="liqChart" class="liqChart"></div>
       <div id="liqStatus" class="liqStatus"></div>

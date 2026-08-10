@@ -1,17 +1,17 @@
 export const columns = [
-  ["symbol", "Symbol", "text"],
-  ["pancake", "Range", "button"],
-  ["marketCap", "MCap", "number"],
-  ["bscLiquidityUsd", "Liquidity", "number"],
-  ["bscLiquidityBand", "Band", "text"],
-  ["bscLiquidityToMcap", "Liq/MCap", "ratio"],
-  ["bscVolume24h", "24h Flow", "number"],
-  ["fundingRate", "Rate", "rate"],
-  ["changePct", "Position Chg", "pct"],
-  ["valueChangePct", "Value Chg", "pct"],
-  ["startOpenInterest", "Start Pos", "compact"],
-  ["endOpenInterest", "Current Pos", "compact"],
-  ["endTime", "Window", "time"],
+  ["symbol", "合约", "text"],
+  ["pancake", "区间图", "button"],
+  ["marketCap", "市值", "number"],
+  ["bscLiquidityUsd", "BSC 流动性", "number"],
+  ["bscLiquidityBand", "流动性", "text"],
+  ["bscLiquidityToMcap", "流动性/市值", "ratio"],
+  ["bscVolume24h", "24h 流量", "number"],
+  ["fundingRate", "资金费率", "rate"],
+  ["changePct", "仓位变化", "pct"],
+  ["valueChangePct", "仓位价值", "pct"],
+  ["startOpenInterest", "起始仓位", "compact"],
+  ["endOpenInterest", "当前仓位", "compact"],
+  ["endTime", "时间窗口", "time"],
 ];
 
 export function escapeHtml(value) {
@@ -96,5 +96,5 @@ export function renderLiquidityChart(data, els) {
       return `<div class="liqBar ${bin.active ? "active" : ""}" style="height:${height}%" data-price="${showLabel ? shortPrice(bin.price) : ""}" title="${shortPrice(bin.price)} · L ${fmtCompact(bin.liquidity)}"></div>`;
     })
     .join("");
-  els.liqStatus.textContent = "Cyan bars show range liquidity. Pink marks the current price range.";
+  els.liqStatus.textContent = "蓝色柱体表示区间流动性，粉色标记当前价格所在区间。";
 }

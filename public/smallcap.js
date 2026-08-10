@@ -43,7 +43,7 @@ let sortState = { key: "changePct", dir: "desc" };
 let scanController = null;
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">Chart</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">区间图</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
@@ -135,7 +135,7 @@ async function scan() {
   const controller = new AbortController();
   scanController = controller;
   els.refreshBtn.disabled = true;
-  els.status.textContent = "Scanning...";
+  els.status.textContent = "正在扫描…";
 
   try {
     const response = await fetch(`/api/scan?${params}`, { signal: controller.signal });

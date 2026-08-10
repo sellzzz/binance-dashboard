@@ -1,19 +1,19 @@
 const $ = (id) => document.getElementById(id);
 
 const columns = [
-  ["symbol", "Symbol", "text"],
-  ["pancake", "Range", "button"],
-  ["marketCap", "MCap", "number"],
-  ["bscLiquidityUsd", "Liquidity", "number"],
-  ["bscLiquidityBand", "Band", "text"],
-  ["bscLiquidityToMcap", "Liq/MCap", "ratio"],
-  ["bscVolume24h", "24h Flow", "number"],
-  ["fundingRate", "Rate", "rate"],
-  ["changePct", "Position Chg", "pct"],
-  ["valueChangePct", "Value Chg", "pct"],
-  ["startOpenInterest", "Start Pos", "compact"],
-  ["endOpenInterest", "Current Pos", "compact"],
-  ["endTime", "Window", "time"],
+  ["symbol", "合约", "text"],
+  ["pancake", "区间图", "button"],
+  ["marketCap", "市值", "number"],
+  ["bscLiquidityUsd", "BSC 流动性", "number"],
+  ["bscLiquidityBand", "流动性", "text"],
+  ["bscLiquidityToMcap", "流动性/市值", "ratio"],
+  ["bscVolume24h", "24h 流量", "number"],
+  ["fundingRate", "资金费率", "rate"],
+  ["changePct", "仓位变化", "pct"],
+  ["valueChangePct", "仓位价值", "pct"],
+  ["startOpenInterest", "起始仓位", "compact"],
+  ["endOpenInterest", "当前仓位", "compact"],
+  ["endTime", "时间窗口", "time"],
 ];
 
 const controls = {
@@ -100,7 +100,7 @@ function fmtTime(ms) {
 }
 
 function cellValue(row, key, type) {
-  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">Chart</button>`;
+  if (type === "button") return `<button class="miniBtn" data-liquidity-symbol="${escapeHtml(row.symbol)}" type="button">区间图</button>`;
   if (type === "number") return fmtUsd(row[key]);
   if (type === "ratio") return fmtRatio(row[key]);
   if (type === "rate") return fmtRate(row[key]);
@@ -172,8 +172,8 @@ function updateSortButtons() {
 }
 
 function rerenderTables() {
-  renderRows(els.alertsBody, sortedRows("alerts"), "No rows match the current signal filters");
-  renderRows(els.topBody, sortedRows("top"), "No rows match the current filters");
+  renderRows(els.alertsBody, sortedRows("alerts"), "当前筛选条件下没有信号");
+  renderRows(els.topBody, sortedRows("top"), "当前筛选条件下没有数据");
   updateSortButtons();
 }
 
@@ -241,7 +241,7 @@ async function scan() {
   scanController = controller;
   els.refreshBtn.disabled = true;
   els.liquidityScanBtn.disabled = true;
-  els.status.textContent = "Scanning...";
+  els.status.textContent = "正在扫描…";
 
   try {
     const response = await fetch(`/api/scan?${params}`, { signal: controller.signal });
@@ -258,7 +258,7 @@ async function scan() {
     const liqText = data.liquidityRange
       ? ` · Liq/MCap ${data.liquidityRange.minPct ?? 0}% - ${data.liquidityRange.maxPct ?? "∞"}%`
       : "";
-    els.status.textContent = `Threshold ${data.threshold}% · ${data.period} × ${data.points}${liqText}`;
+    els.status.textContent = `阈值 ${data.threshold}% · ${data.period} × ${data.points}${liqText}`;
 
     latestRows = { alerts: data.alerts, top: data.topRisers };
     rerenderTables();

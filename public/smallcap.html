@@ -3,94 +3,63 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Small Cap Monitor</title>
+    <title>低市值扫描 · 交易数据监控</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="toolbar">
+    <main class="shell smallcapShell">
+      <header class="siteBar">
+        <a class="brand" href="/" aria-label="返回数据监控主站">
+          <span class="brandMark">M</span>
+          <span class="brandCopy"><strong>Market Monitor</strong><small>Signal intelligence</small></span>
+        </a>
+        <nav class="siteNav" aria-label="主导航">
+          <a href="/">总览</a>
+          <a href="/position.html">仓位信号</a>
+          <a class="active" href="/smallcap.html">低市值</a>
+        </nav>
+      </header>
+      <section class="toolbar smallcapToolbar">
         <div>
-          <h1>Small Cap Monitor</h1>
-          <p>Focused market data view for smaller names, position changes, rates, and liquidity context.</p>
+          <div class="pageEyebrow">MARKET SCANNER / 低市值扫描</div>
+          <h1>低市值标的扫描</h1>
+          <p>快速筛选低市值合约，集中查看仓位变化、资金费率与流动性背景。</p>
         </div>
         <div class="actions">
-          <a class="linkBtn" href="/">主站</a>
-          <a class="linkBtn" href="/position.html">Position Signals</a>
-          <button id="refreshBtn" type="button">刷新</button>
+          <a class="linkBtn" href="/">返回主站</a>
+          <a class="linkBtn" href="/position.html">仓位信号</a>
+          <button id="refreshBtn" type="button">刷新扫描</button>
         </div>
       </section>
 
-      <section class="controls" aria-label="Small cap filters">
-        <label>
-          周期
-          <select id="period">
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-            <option value="4h" selected>4h</option>
-            <option value="1d">1d</option>
-          </select>
-        </label>
-        <label>
-          对比K线数
-          <input id="points" type="number" min="2" max="30" value="5" />
-        </label>
-        <label>
-          Market Cap Max $M
-          <input id="smallCapMaxM" type="number" min="1" max="5000" value="100" />
-        </label>
-        <label>
-          Min Change %
-          <input id="smallCapMinChange" type="number" min="-100" max="500" value="0" />
-        </label>
-        <label>
-          Scan Limit
-          <input id="maxSymbols" type="number" min="20" max="500" value="500" />
-        </label>
-        <label>
-          Symbol Search
-          <input id="symbolSearch" type="search" placeholder="KOMA" />
-        </label>
+      <section class="controls smallcapControls" aria-label="低市值筛选条件">
+        <label>周期<select id="period"><option value="15m">15m</option><option value="1h">1h</option><option value="4h" selected>4h</option><option value="1d">1d</option></select></label>
+        <label>对比 K 线数<input id="points" type="number" min="2" max="30" value="5" /></label>
+        <label>市值上限（$M）<input id="smallCapMaxM" type="number" min="1" max="5000" value="100" /></label>
+        <label>最小仓位变化（%）<input id="smallCapMinChange" type="number" min="-100" max="500" value="0" /></label>
+        <label>扫描数量<input id="maxSymbols" type="number" min="20" max="500" value="500" /></label>
+        <label>搜索标的<input id="symbolSearch" type="search" placeholder="输入 SYMBOL" /></label>
       </section>
 
-      <section class="stats" aria-label="扫描结果概要">
-        <div>
-          <span>Small Cap Count</span>
-          <strong id="smallCount">-</strong>
-        </div>
-        <div>
-          <span>Scanned</span>
-          <strong id="scanned">-</strong>
-        </div>
-        <div>
-          <span>Updated</span>
-          <strong id="updated">-</strong>
-        </div>
+      <section class="stats smallcapStats" aria-label="扫描结果概览">
+        <div><span>符合条件</span><strong id="smallCount">-</strong></div>
+        <div><span>已扫描</span><strong id="scanned">-</strong></div>
+        <div><span>最近更新</span><strong id="updated">-</strong></div>
       </section>
 
-      <section class="panel focusPanel">
+      <section class="panel focusPanel smallcapPanel">
         <div class="panelHead">
           <div>
-            <h2>Small Cap List</h2>
+            <div class="panelTitleLine"><span class="panelDot"></span><h2>低市值标的列表</h2></div>
             <p id="status">等待扫描</p>
           </div>
         </div>
-        <div class="tableWrap">
-          <table>
-            <thead id="smallHead"></thead>
-            <tbody id="smallBody"></tbody>
-          </table>
-        </div>
+        <div class="tableWrap"><table><thead id="smallHead"></thead><tbody id="smallBody"></tbody></table></div>
       </section>
     </main>
 
     <dialog id="liquidityDialog">
-      <div class="dialogHead">
-        <div>
-          <h2 id="liqTitle">Liquidity Range</h2>
-          <p id="liqMeta"></p>
-        </div>
-        <button id="closeDialog" type="button" class="secondary">Close</button>
-      </div>
+      <div class="dialogHead"><div><h2 id="liqTitle">流动性区间</h2><p id="liqMeta"></p></div><button id="closeDialog" type="button" class="secondary">关闭</button></div>
       <div id="liqChart" class="liqChart"></div>
       <div id="liqStatus" class="liqStatus"></div>
     </dialog>
