@@ -88,7 +88,7 @@ async function scan() {
     els.signalCount.textContent = data.signals.length;
     els.watchCount.textContent = data.rows.length;
     els.updated.textContent = new Date(data.generatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-    els.status.textContent = `日线 · 最短 ${data.minimumAgeBars} 根 · 首次重返触发提醒`;
+    els.status.textContent = `日线 · ${data.minimumAgeText} · 首次重返触发提醒`;
     renderSignals(data.signals);
     renderWatch(data.rows);
   } catch (error) {

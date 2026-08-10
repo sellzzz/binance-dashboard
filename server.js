@@ -199,7 +199,7 @@ function buildReversalSignal(asset, candles) {
   if (candles.length < 20) return { status: "insufficient_data", current: null, signals: [], zones: [] };
   const current = candles.at(-1);
   const currentIndex = candles.length - 1;
-  const minAgeBars = 10;
+  const minAgeBars = asset.source === "binance" ? 14 : 10;
   const candidates = [];
 
   for (const side of ["support", "resistance"]) {
@@ -275,7 +275,8 @@ async function handleReversalScan(req, res) {
     const data = {
       generatedAt: new Date().toISOString(),
       timeframe: "1D",
-      minimumAgeBars: 10,
+      minimumAgeBars: { stocks: 10, crypto: 14 },
+      minimumAgeText: "股票 10 个交易日 / 加密资产 14 根日线",
       rows,
       signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),
     };
