@@ -14,6 +14,7 @@ const CACHE_MS = 30_000;
 const MACRO_CACHE_MS = 60_000;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_SCAN_CACHE = 60;
+const REVERSAL_CACHE_MS = 5 * 60_000;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
 const CONCURRENCY = 12;
@@ -26,6 +27,7 @@ let bscPoolCache = new Map();
 let pancakeV3PoolCache = new Map();
 let scanCache = new Map();
 let pancakeRangeCache = new Map();
+let reversalCache = new Map();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 
@@ -124,6 +126,164 @@ async function yahooChart(symbol, params) {
   const result = payload.chart?.result?.[0];
   if (!result) throw new Error(payload.chart?.error?.description || "Yahoo chart data unavailable");
   return result;
+}
+
+const reversalPresets = new Map([
+  ["1810.HK", { symbol: "1810.HK", name: "小米集团", market: "港股", source: "yahoo", sourceSymbol: "1810.HK" }],
+  ["XAUUSD", { symbol: "XAUUSD", name: "黄金", market: "贵金属", source: "yahoo", sourceSymbol: "GC=F" }],
+  ["XAGUSD", { symbol: "XAGUSD", name: "白银", market: "贵金属", source: "yahoo", sourceSymbol: "SI=F" }],
+  ["BTCUSDT", { symbol: "BTCUSDT", name: "Bitcoin", market: "加密资产", source: "binance", sourceSymbol: "BTCUSDT" }],
+  ["ETHUSDT", { symbol: "ETHUSDT", name: "Ethereum", market: "加密资产", source: "binance", sourceSymbol: "ETHUSDT" }],
+  ["PENGUUSDT", { symbol: "PENGUUSDT", name: "PENGU", market: "加密资产", source: "binance", sourceSymbol: "PENGUUSDT" }],
+  ["BUSDT", { symbol: "BUSDT", name: "B", market: "加密资产", source: "binance", sourceSymbol: "BUSDT" }],
+]);
+
+function resolveReversalAsset(value) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return null;
+  if (reversalPresets.has(raw)) return reversalPresets.get(raw);
+  if (/\.HK$|=|\^|-USD$/.test(raw)) {
+    return { symbol: raw, name: raw, market: "自定义行情", source: "yahoo", sourceSymbol: raw };
+  }
+  return { symbol: raw, name: raw, market: "币安合约", source: "binance", sourceSymbol: raw };
+}
+
+async function getReversalCandles(asset) {
+  if (asset.source === "yahoo") {
+    const chart = await yahooChart(asset.sourceSymbol, { range: "1y", interval: "1d" });
+    const timestamps = chart.timestamp || [];
+    const quote = chart.indicators?.quote?.[0] || {};
+    return timestamps.map((timestamp, index) => ({
+      timestamp: Number(timestamp) * 1000,
+      open: Number(quote.open?.[index]),
+      high: Number(quote.high?.[index]),
+      low: Number(quote.low?.[index]),
+      close: Number(quote.close?.[index]),
+      volume: Number(quote.volume?.[index]),
+    })).filter((row) => [row.open, row.high, row.low, row.close].every(Number.isFinite));
+  }
+
+  const rows = await binance(`/fapi/v1/klines?symbol=${encodeURIComponent(asset.sourceSymbol)}&interval=1d&limit=365`);
+  return (Array.isArray(rows) ? rows : []).map((row) => ({
+    timestamp: Number(row[0]),
+    open: Number(row[1]),
+    high: Number(row[2]),
+    low: Number(row[3]),
+    close: Number(row[4]),
+    volume: Number(row[5]),
+  })).filter((row) => [row.open, row.high, row.low, row.close].every(Number.isFinite));
+}
+
+function averageRange(candles, index) {
+  const rows = candles.slice(Math.max(1, index - 13), index + 1);
+  if (!rows.length) return 0;
+  return rows.reduce((sum, row) => sum + Math.max(0, row.high - row.low), 0) / rows.length;
+}
+
+function isPivot(candles, index, side) {
+  const pivot = side === "support" ? candles[index].low : candles[index].high;
+  for (let offset = -2; offset <= 2; offset += 1) {
+    if (!offset) continue;
+    const value = side === "support" ? candles[index + offset].low : candles[index + offset].high;
+    if (side === "support" && value < pivot) return false;
+    if (side === "resistance" && value > pivot) return false;
+  }
+  return true;
+}
+
+function touchesZone(candle, zone) {
+  return candle.low <= zone.high && candle.high >= zone.low;
+}
+
+function buildReversalSignal(asset, candles) {
+  if (candles.length < 20) return { status: "insufficient_data", current: null, signals: [], zones: [] };
+  const current = candles.at(-1);
+  const currentIndex = candles.length - 1;
+  const minAgeBars = 10;
+  const candidates = [];
+
+  for (const side of ["support", "resistance"]) {
+    for (let index = 2; index <= currentIndex - 3; index += 1) {
+      if (!isPivot(candles, index, side) || currentIndex - index < minAgeBars) continue;
+      const point = side === "support" ? candles[index].low : candles[index].high;
+      const width = Math.max(point * 0.01, averageRange(candles, index) * 0.7);
+      const zone = side === "support"
+        ? { low: point - width * 0.35, high: point + width }
+        : { low: point - width, high: point + width * 0.35 };
+      const previousBars = candles.slice(index + 3, currentIndex);
+      const hadPriorTouch = previousBars.some((candle) => touchesZone(candle, zone));
+      const isTouching = touchesZone(current, zone);
+      const distance = current.close < zone.low
+        ? ((zone.low - current.close) / current.close) * 100
+        : current.close > zone.high
+          ? ((current.close - zone.high) / current.close) * 100
+          : 0;
+      candidates.push({
+        type: side === "support" ? "support-touch" : "resistance-touch",
+        label: side === "support" ? "支撑区首次触及" : "阻力区首次触及",
+        direction: side === "support" ? "potential-rebound" : "potential-pullback",
+        zoneLow: zone.low,
+        zoneHigh: zone.high,
+        point,
+        originTime: candles[index].timestamp,
+        touchTime: current.timestamp,
+        ageBars: currentIndex - index,
+        distancePct: Math.abs(distance),
+        wickSize: side === "support" ? current.low : current.high,
+        isTouching,
+        isFirstTouch: isTouching && !hadPriorTouch,
+        hadPriorTouch,
+      });
+    }
+  }
+
+  const signals = candidates
+    .filter((candidate) => candidate.isFirstTouch)
+    .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars);
+  const zones = candidates
+    .slice()
+    .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars)
+    .slice(0, 6);
+  return {
+    status: signals.length ? "first-touch" : "waiting",
+    current: { price: current.close, time: current.timestamp },
+    signals: signals.slice(0, 2),
+    zones,
+  };
+}
+
+async function handleReversalScan(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const requested = (url.searchParams.get("symbols") || "1810.HK,XAUUSD,XAGUSD,BTCUSDT,ETHUSDT,PENGUUSDT,BUSDT")
+    .split(",")
+    .map(resolveReversalAsset)
+    .filter(Boolean)
+    .slice(0, 12);
+  const key = requested.map((asset) => asset.symbol).join(",");
+  const cached = reversalCache.get(key);
+  if (cached && Date.now() - cached.at < REVERSAL_CACHE_MS) return json(res, 200, cached.data);
+
+  try {
+    const rows = await mapLimit(requested, 4, async (asset) => {
+      try {
+        const candles = await getReversalCandles(asset);
+        return { ...asset, ...buildReversalSignal(asset, candles), error: null };
+      } catch (error) {
+        return { ...asset, status: "error", current: null, signals: [], zones: [], error: error.message };
+      }
+    });
+    const data = {
+      generatedAt: new Date().toISOString(),
+      timeframe: "1D",
+      minimumAgeBars: 10,
+      rows,
+      signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),
+    };
+    reversalCache.set(key, { at: Date.now(), data });
+    json(res, 200, data);
+  } catch (error) {
+    json(res, 502, { error: error.message });
+  }
 }
 
 async function getVix() {
@@ -962,6 +1122,8 @@ async function serveStatic(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url === "/api/health" || req.url === "/healthz") {
     handleHealth(req, res);
+  } else if (req.url.startsWith("/api/reversal/scan")) {
+    handleReversalScan(req, res);
   } else if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();

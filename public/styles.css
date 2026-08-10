@@ -746,6 +746,149 @@ dialog::backdrop {
   }
 }
 
+.reversalControls {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.reversalSymbols {
+  min-width: 0;
+}
+
+.reversalRule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #2b3e56;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.ruleDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #43c7b5;
+  box-shadow: 0 0 0 4px rgba(67, 199, 181, 0.12);
+}
+
+.reversalSignalList {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.reversalSignal {
+  padding: 16px;
+  border: 1px solid #2b4f79;
+  border-left: 3px solid #43c7b5;
+  border-radius: 7px;
+  background: #14253a;
+}
+
+.reversalSignal.isResistance {
+  border-color: #70445a;
+  border-left-color: #f07c8d;
+  background: #291d2b;
+}
+
+.reversalSignalTop,
+.reversalSignalGrid {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reversalSignalTop strong {
+  font-size: 17px;
+}
+
+.signalBadge {
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #1d4d55;
+  color: #7ee7d2;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.isResistance .signalBadge {
+  background: #5a2d40;
+  color: #ff9aaa;
+}
+
+.signalMarket {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reversalSignalGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(139, 155, 176, 0.18);
+}
+
+.reversalSignalGrid div {
+  display: grid;
+  gap: 5px;
+}
+
+.reversalSignalGrid span,
+.reversalSignalFoot {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reversalSignalGrid b {
+  color: #f2f6ff;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.reversalSignalFoot {
+  margin-top: 14px;
+}
+
+.reversalWatchPanel {
+  margin-top: 14px;
+}
+
+.reversalTable {
+  min-width: 820px;
+}
+
+@media (max-width: 760px) {
+  .reversalControls {
+    grid-template-columns: 1fr;
+  }
+
+  .reversalRule {
+    justify-content: center;
+  }
+
+  .reversalSignalTop {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .signalMarket {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .reversalSignalGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 14px;
+  }
+}
+
 /* Main dashboard visual system */
 :root {
   color-scheme: dark;

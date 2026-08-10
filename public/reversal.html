@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>关键区域提醒 · Market Monitor</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell reversalShell">
+      <header class="siteBar">
+        <a class="brand" href="/" aria-label="返回数据监控主站">
+          <span class="brandMark">M</span>
+          <span class="brandCopy"><strong>Market Monitor</strong><small>Signal intelligence</small></span>
+        </a>
+        <nav class="siteNav" aria-label="主导航">
+          <a href="/">总览</a>
+          <a href="/position.html">仓位信号</a>
+          <a href="/smallcap.html">低市值</a>
+          <a class="active" href="/reversal.html">关键区域</a>
+        </nav>
+      </header>
+
+      <section class="toolbar reversalToolbar">
+        <div>
+          <div class="pageEyebrow">DAILY REVISIT RADAR / 日线区域</div>
+          <h1>关键区域提醒</h1>
+          <p>寻找趋势结束后的历史支撑或阻力区域，价格首次重返时提醒人工判断。</p>
+        </div>
+        <div class="actions">
+          <a class="linkBtn" href="/">返回总览</a>
+          <button id="refreshBtn" type="button">刷新扫描</button>
+        </div>
+      </section>
+
+      <section class="controls reversalControls" aria-label="关键区域扫描设置">
+        <label class="reversalSymbols">
+          观察标的
+          <input id="symbols" type="text" value="1810.HK,XAUUSD,XAGUSD,BTCUSDT,ETHUSDT,PENGUUSDT,BUSDT" placeholder="例如 1810.HK,XAUUSD,BTCUSDT" />
+        </label>
+        <div class="reversalRule"><span class="ruleDot"></span><span>日线 · 最短 2 周 · 首次重返</span></div>
+      </section>
+
+      <section class="stats reversalStats" aria-label="扫描概览">
+        <div><span>首次触及</span><strong id="signalCount">-</strong></div>
+        <div><span>观察标的</span><strong id="watchCount">-</strong></div>
+        <div><span>更新时间</span><strong id="updated">-</strong></div>
+      </section>
+
+      <section class="panel reversalSignalPanel">
+        <div class="panelHead">
+          <div><h2>首次触及提醒</h2><p id="status">等待扫描</p></div>
+          <span class="macroSource">人工判断 · 不自动交易</span>
+        </div>
+        <div id="signalList" class="reversalSignalList"></div>
+      </section>
+
+      <section class="panel reversalWatchPanel">
+        <div class="panelHead"><div><h2>观察列表</h2><p>没有首次触及时，标的仍保留在观察中。</p></div></div>
+        <div class="tableWrap"><table class="reversalTable"><thead><tr><th>标的</th><th>市场</th><th>状态</th><th>当前价</th><th>区域</th><th>区域年龄</th><th>错误</th></tr></thead><tbody id="watchBody"></tbody></table></div>
+      </section>
+    </main>
+    <script src="/reversal.js" type="module"></script>
+  </body>
+</html>

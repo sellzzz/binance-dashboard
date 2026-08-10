@@ -24,6 +24,7 @@ npm start
 ```text
 http://localhost:8787/
 http://localhost:8787/smallcap.html
+http://localhost:8787/reversal.html
 ```
 
 服务状态检查：
@@ -31,6 +32,8 @@ http://localhost:8787/smallcap.html
 ```text
 http://localhost:8787/api/health
 ```
+
+日线关键区域原型会扫描少量预设标的，也支持通过页面输入自定义标的。它只发送“首次重返区域”提醒，不自动交易。
 
 指定端口：
 
