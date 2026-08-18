@@ -141,6 +141,33 @@ const reversalPresets = new Map([
   ["0005.HK", { symbol: "0005.HK", name: "汇丰控股", market: "港股", source: "yahoo", sourceSymbol: "0005.HK" }],
   ["XAUUSD", { symbol: "XAUUSD", name: "黄金", market: "贵金属", source: "yahoo", sourceSymbol: "GC=F" }],
   ["XAGUSD", { symbol: "XAGUSD", name: "白银", market: "贵金属", source: "yahoo", sourceSymbol: "SI=F" }],
+  ["AAPLUSDT", { symbol: "AAPLUSDT", name: "Apple", market: "美股合约", source: "binance", sourceSymbol: "AAPLUSDT" }],
+  ["AMZNUSDT", { symbol: "AMZNUSDT", name: "Amazon", market: "美股合约", source: "binance", sourceSymbol: "AMZNUSDT" }],
+  ["TSLAUSDT", { symbol: "TSLAUSDT", name: "Tesla", market: "美股合约", source: "binance", sourceSymbol: "TSLAUSDT" }],
+  ["NVDAUSDT", { symbol: "NVDAUSDT", name: "NVIDIA", market: "美股合约", source: "binance", sourceSymbol: "NVDAUSDT" }],
+  ["MSFTUSDT", { symbol: "MSFTUSDT", name: "Microsoft", market: "美股合约", source: "binance", sourceSymbol: "MSFTUSDT" }],
+  ["METAUSDT", { symbol: "METAUSDT", name: "Meta", market: "美股合约", source: "binance", sourceSymbol: "METAUSDT" }],
+  ["GOOGLUSDT", { symbol: "GOOGLUSDT", name: "Alphabet", market: "美股合约", source: "binance", sourceSymbol: "GOOGLUSDT" }],
+  ["MSTRUSDT", { symbol: "MSTRUSDT", name: "Strategy", market: "美股合约", source: "binance", sourceSymbol: "MSTRUSDT" }],
+  ["COINUSDT", { symbol: "COINUSDT", name: "Coinbase", market: "美股合约", source: "binance", sourceSymbol: "COINUSDT" }],
+  ["HOODUSDT", { symbol: "HOODUSDT", name: "Robinhood", market: "美股合约", source: "binance", sourceSymbol: "HOODUSDT" }],
+  ["PLTRUSDT", { symbol: "PLTRUSDT", name: "Palantir", market: "美股合约", source: "binance", sourceSymbol: "PLTRUSDT" }],
+  ["CRCLUSDT", { symbol: "CRCLUSDT", name: "Circle", market: "美股合约", source: "binance", sourceSymbol: "CRCLUSDT" }],
+  ["AMDUSDT", { symbol: "AMDUSDT", name: "AMD", market: "美股合约", source: "binance", sourceSymbol: "AMDUSDT" }],
+  ["AVGOUSDT", { symbol: "AVGOUSDT", name: "Broadcom", market: "美股合约", source: "binance", sourceSymbol: "AVGOUSDT" }],
+  ["QCOMUSDT", { symbol: "QCOMUSDT", name: "Qualcomm", market: "美股合约", source: "binance", sourceSymbol: "QCOMUSDT" }],
+  ["INTCUSDT", { symbol: "INTCUSDT", name: "Intel", market: "美股合约", source: "binance", sourceSymbol: "INTCUSDT" }],
+  ["ORCLUSDT", { symbol: "ORCLUSDT", name: "Oracle", market: "美股合约", source: "binance", sourceSymbol: "ORCLUSDT" }],
+  ["NFLXUSDT", { symbol: "NFLXUSDT", name: "Netflix", market: "美股合约", source: "binance", sourceSymbol: "NFLXUSDT" }],
+  ["DISUSDT", { symbol: "DISUSDT", name: "Disney", market: "美股合约", source: "binance", sourceSymbol: "DISUSDT" }],
+  ["WMTUSDT", { symbol: "WMTUSDT", name: "Walmart", market: "美股合约", source: "binance", sourceSymbol: "WMTUSDT" }],
+  ["COSTUSDT", { symbol: "COSTUSDT", name: "Costco", market: "美股合约", source: "binance", sourceSymbol: "COSTUSDT" }],
+  ["LLYUSDT", { symbol: "LLYUSDT", name: "Eli Lilly", market: "美股合约", source: "binance", sourceSymbol: "LLYUSDT" }],
+  ["CVXUSDT", { symbol: "CVXUSDT", name: "Chevron", market: "美股合约", source: "binance", sourceSymbol: "CVXUSDT" }],
+  ["BABAUSDT", { symbol: "BABAUSDT", name: "Alibaba", market: "美股合约", source: "binance", sourceSymbol: "BABAUSDT" }],
+  ["SPYUSDT", { symbol: "SPYUSDT", name: "S&P 500 ETF", market: "美股合约", source: "binance", sourceSymbol: "SPYUSDT" }],
+  ["QQQUSDT", { symbol: "QQQUSDT", name: "Nasdaq 100 ETF", market: "美股合约", source: "binance", sourceSymbol: "QQQUSDT" }],
+  ["TQQQUSDT", { symbol: "TQQQUSDT", name: "Nasdaq 3x ETF", market: "美股合约", source: "binance", sourceSymbol: "TQQQUSDT" }],
   ["BTCUSDT", { symbol: "BTCUSDT", name: "Bitcoin", market: "加密资产", source: "binance", sourceSymbol: "BTCUSDT" }],
   ["ETHUSDT", { symbol: "ETHUSDT", name: "Ethereum", market: "加密资产", source: "binance", sourceSymbol: "ETHUSDT" }],
   ["BNBUSDT", { symbol: "BNBUSDT", name: "BNB", market: "加密资产", source: "binance", sourceSymbol: "BNBUSDT" }],
@@ -203,10 +230,10 @@ async function getTopReversalFutures(limit = 30) {
 }
 
 async function getDefaultReversalAssets() {
-  const fixedSymbols = ["1810.HK", "0700.HK", "9988.HK", "3690.HK", "9618.HK", "9999.HK", "2318.HK", "0941.HK", "0388.HK", "0005.HK", "XAUUSD", "XAGUSD"];
+  const fixedSymbols = ["1810.HK", "0700.HK", "9988.HK", "3690.HK", "9618.HK", "9999.HK", "2318.HK", "0941.HK", "0388.HK", "0005.HK", "XAUUSD", "XAGUSD", "AAPLUSDT", "AMZNUSDT", "TSLAUSDT", "NVDAUSDT", "MSFTUSDT", "METAUSDT", "GOOGLUSDT", "MSTRUSDT", "COINUSDT", "HOODUSDT", "PLTRUSDT", "CRCLUSDT", "AMDUSDT", "AVGOUSDT", "QCOMUSDT", "INTCUSDT", "ORCLUSDT", "NFLXUSDT", "DISUSDT", "WMTUSDT", "COSTUSDT", "LLYUSDT", "CVXUSDT", "BABAUSDT", "SPYUSDT", "QQQUSDT", "TQQQUSDT"];
   const fixed = fixedSymbols.map(resolveReversalAsset).filter(Boolean);
   try {
-    return [...fixed, ...(await getTopReversalFutures(28))].slice(0, 40);
+    return [...fixed, ...(await getTopReversalFutures(20))].slice(0, 60);
   } catch {
     return fixed;
   }
