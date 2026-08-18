@@ -90,7 +90,7 @@ async function scan() {
     els.signalCount.textContent = data.signals.length;
     els.watchCount.textContent = data.rows.length;
     els.updated.textContent = new Date(data.generatedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-    els.status.textContent = `1D / ${data.minimumAgeText} / second revisit + ${data.proximityPct}% proximity warning`;
+    els.status.textContent = `${data.selectionMode === "24h-quote-volume" ? "24h成交额自动选取" : "手动观察池"} / 1D / ${data.minimumAgeText} / second revisit + ${data.proximityPct}% proximity warning`;
     renderSignals(data.signals);
     renderWatch(data.rows);
   } catch (error) {

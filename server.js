@@ -130,6 +130,15 @@ async function yahooChart(symbol, params) {
 
 const reversalPresets = new Map([
   ["1810.HK", { symbol: "1810.HK", name: "小米集团", market: "港股", source: "yahoo", sourceSymbol: "1810.HK" }],
+  ["0700.HK", { symbol: "0700.HK", name: "腾讯控股", market: "港股", source: "yahoo", sourceSymbol: "0700.HK" }],
+  ["9988.HK", { symbol: "9988.HK", name: "阿里巴巴", market: "港股", source: "yahoo", sourceSymbol: "9988.HK" }],
+  ["3690.HK", { symbol: "3690.HK", name: "美团", market: "港股", source: "yahoo", sourceSymbol: "3690.HK" }],
+  ["9618.HK", { symbol: "9618.HK", name: "京东集团", market: "港股", source: "yahoo", sourceSymbol: "9618.HK" }],
+  ["9999.HK", { symbol: "9999.HK", name: "网易", market: "港股", source: "yahoo", sourceSymbol: "9999.HK" }],
+  ["2318.HK", { symbol: "2318.HK", name: "中国平安", market: "港股", source: "yahoo", sourceSymbol: "2318.HK" }],
+  ["0941.HK", { symbol: "0941.HK", name: "中国移动", market: "港股", source: "yahoo", sourceSymbol: "0941.HK" }],
+  ["0388.HK", { symbol: "0388.HK", name: "香港交易所", market: "港股", source: "yahoo", sourceSymbol: "0388.HK" }],
+  ["0005.HK", { symbol: "0005.HK", name: "汇丰控股", market: "港股", source: "yahoo", sourceSymbol: "0005.HK" }],
   ["XAUUSD", { symbol: "XAUUSD", name: "黄金", market: "贵金属", source: "yahoo", sourceSymbol: "GC=F" }],
   ["XAGUSD", { symbol: "XAGUSD", name: "白银", market: "贵金属", source: "yahoo", sourceSymbol: "SI=F" }],
   ["BTCUSDT", { symbol: "BTCUSDT", name: "Bitcoin", market: "加密资产", source: "binance", sourceSymbol: "BTCUSDT" }],
@@ -148,6 +157,26 @@ const reversalPresets = new Map([
   ["ARBUSDT", { symbol: "ARBUSDT", name: "Arbitrum", market: "加密资产", source: "binance", sourceSymbol: "ARBUSDT" }],
   ["OPUSDT", { symbol: "OPUSDT", name: "Optimism", market: "加密资产", source: "binance", sourceSymbol: "OPUSDT" }],
   ["WIFUSDT", { symbol: "WIFUSDT", name: "dogwifhat", market: "加密资产", source: "binance", sourceSymbol: "WIFUSDT" }],
+  ["BCHUSDT", { symbol: "BCHUSDT", name: "Bitcoin Cash", market: "加密资产", source: "binance", sourceSymbol: "BCHUSDT" }],
+  ["ETCUSDT", { symbol: "ETCUSDT", name: "Ethereum Classic", market: "加密资产", source: "binance", sourceSymbol: "ETCUSDT" }],
+  ["ATOMUSDT", { symbol: "ATOMUSDT", name: "Cosmos", market: "加密资产", source: "binance", sourceSymbol: "ATOMUSDT" }],
+  ["DOTUSDT", { symbol: "DOTUSDT", name: "Polkadot", market: "加密资产", source: "binance", sourceSymbol: "DOTUSDT" }],
+  ["CRVUSDT", { symbol: "CRVUSDT", name: "Curve", market: "加密资产", source: "binance", sourceSymbol: "CRVUSDT" }],
+  ["RUNEUSDT", { symbol: "RUNEUSDT", name: "THORChain", market: "加密资产", source: "binance", sourceSymbol: "RUNEUSDT" }],
+  ["EGLDUSDT", { symbol: "EGLDUSDT", name: "MultiversX", market: "加密资产", source: "binance", sourceSymbol: "EGLDUSDT" }],
+  ["UNIUSDT", { symbol: "UNIUSDT", name: "Uniswap", market: "加密资产", source: "binance", sourceSymbol: "UNIUSDT" }],
+  ["NEARUSDT", { symbol: "NEARUSDT", name: "NEAR Protocol", market: "加密资产", source: "binance", sourceSymbol: "NEARUSDT" }],
+  ["FILUSDT", { symbol: "FILUSDT", name: "Filecoin", market: "加密资产", source: "binance", sourceSymbol: "FILUSDT" }],
+  ["IMXUSDT", { symbol: "IMXUSDT", name: "Immutable", market: "加密资产", source: "binance", sourceSymbol: "IMXUSDT" }],
+  ["INJUSDT", { symbol: "INJUSDT", name: "Injective", market: "加密资产", source: "binance", sourceSymbol: "INJUSDT" }],
+  ["APTUSDT", { symbol: "APTUSDT", name: "Aptos", market: "加密资产", source: "binance", sourceSymbol: "APTUSDT" }],
+  ["STXUSDT", { symbol: "STXUSDT", name: "Stacks", market: "加密资产", source: "binance", sourceSymbol: "STXUSDT" }],
+  ["SEIUSDT", { symbol: "SEIUSDT", name: "Sei", market: "加密资产", source: "binance", sourceSymbol: "SEIUSDT" }],
+  ["TIAUSDT", { symbol: "TIAUSDT", name: "Celestia", market: "加密资产", source: "binance", sourceSymbol: "TIAUSDT" }],
+  ["KASUSDT", { symbol: "KASUSDT", name: "Kaspa", market: "加密资产", source: "binance", sourceSymbol: "KASUSDT" }],
+  ["JUPUSDT", { symbol: "JUPUSDT", name: "Jupiter", market: "加密资产", source: "binance", sourceSymbol: "JUPUSDT" }],
+  ["TAOUSDT", { symbol: "TAOUSDT", name: "Bittensor", market: "加密资产", source: "binance", sourceSymbol: "TAOUSDT" }],
+  ["POLUSDT", { symbol: "POLUSDT", name: "Polygon", market: "加密资产", source: "binance", sourceSymbol: "POLUSDT" }],
   ["PENGUUSDT", { symbol: "PENGUUSDT", name: "PENGU", market: "加密资产", source: "binance", sourceSymbol: "PENGUUSDT" }],
   ["BUSDT", { symbol: "BUSDT", name: "B", market: "加密资产", source: "binance", sourceSymbol: "BUSDT" }],
 ]);
@@ -160,6 +189,27 @@ function resolveReversalAsset(value) {
     return { symbol: raw, name: raw, market: "自定义行情", source: "yahoo", sourceSymbol: raw };
   }
   return { symbol: raw, name: raw, market: "币安合约", source: "binance", sourceSymbol: raw };
+}
+
+async function getTopReversalFutures(limit = 30) {
+  const response = await fetchWithTimeout("https://fapi.binance.com/fapi/v1/ticker/24hr", { timeoutMs: 15_000 });
+  if (!response.ok) throw new Error(`Binance 24h ticker ${response.status}`);
+  const tickers = await response.json();
+  return tickers
+    .filter((ticker) => ticker.symbol?.endsWith("USDT") && !ticker.symbol.includes("_") && Number(ticker.quoteVolume) > 0)
+    .sort((a, b) => Number(b.quoteVolume) - Number(a.quoteVolume))
+    .slice(0, limit)
+    .map((ticker) => resolveReversalAsset(ticker.symbol));
+}
+
+async function getDefaultReversalAssets() {
+  const fixedSymbols = ["1810.HK", "0700.HK", "9988.HK", "3690.HK", "9618.HK", "9999.HK", "2318.HK", "0941.HK", "0388.HK", "0005.HK", "XAUUSD", "XAGUSD"];
+  const fixed = fixedSymbols.map(resolveReversalAsset).filter(Boolean);
+  try {
+    return [...fixed, ...(await getTopReversalFutures(28))].slice(0, 40);
+  } catch {
+    return fixed;
+  }
 }
 
 async function getReversalCandles(asset) {
@@ -280,11 +330,10 @@ function buildReversalSignal(asset, candles) {
 
 async function handleReversalScan(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const requested = (url.searchParams.get("symbols") || "1810.HK,XAUUSD,XAGUSD,BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,ADAUSDT,SUIUSDT,AVAXUSDT,LINKUSDT,TRXUSDT,LTCUSDT,AAVEUSDT,ARBUSDT,OPUSDT,WIFUSDT,PENGUUSDT")
-    .split(",")
-    .map(resolveReversalAsset)
-    .filter(Boolean)
-    .slice(0, 20);
+  const symbols = url.searchParams.get("symbols")?.trim();
+  const requested = symbols
+    ? symbols.split(",").map(resolveReversalAsset).filter(Boolean).slice(0, 40)
+    : await getDefaultReversalAssets();
   const key = requested.map((asset) => asset.symbol).join(",");
   const cached = reversalCache.get(key);
   if (cached && Date.now() - cached.at < REVERSAL_CACHE_MS) return json(res, 200, cached.data);
@@ -301,6 +350,7 @@ async function handleReversalScan(req, res) {
     const data = {
       generatedAt: new Date().toISOString(),
       timeframe: "1D",
+      selectionMode: symbols ? "manual" : "24h-quote-volume",
       minimumAgeBars: { stocks: 10, crypto: 14 },
       proximityPct: 1.2,
       minimumAgeText: "股票 10 个交易日 / 加密资产 14 根日线",
