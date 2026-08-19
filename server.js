@@ -3,26 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { Interface } from "ethers";
+import { config } from "./src/config.js";
 
-const PORT = Number(process.env.PORT || 8787);
-const PUBLIC_DIR = join(process.cwd(), "public");
-const BINANCE_FAPI = "https://fapi.binance.com";
-const COINGECKO_API = "https://api.coingecko.com/api/v3";
-const DEXSCREENER_API = "https://api.dexscreener.com";
-const BSC_RPC = process.env.BSC_RPC || "https://bsc-dataseed.binance.org";
-const CACHE_MS = 30_000;
-const MACRO_CACHE_MS = 60_000;
-const FETCH_TIMEOUT_MS = 15_000;
-const MAX_SCAN_CACHE = 60;
-const REVERSAL_CACHE_MS = 5 * 60_000;
-const REVERSAL_HISTORY_FILE = join(process.cwd(), "data", "reversal-signals.json");
-const REVERSAL_HISTORY_LIMIT = 500;
-const ONCHAIN_ALERTS_FILE = join(process.cwd(), "data", "onchain-alerts.json");
-const ONCHAIN_ALERT_LIMIT = 200;
-const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
-const TREASURY_CURVE_CSV = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv";
-const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
-const CONCURRENCY = 12;
+const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
 
 let symbolsCache = { at: 0, data: [] };
 let marketCapCache = { at: 0, data: new Map() };

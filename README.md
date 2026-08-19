@@ -12,6 +12,25 @@
 - V3 tick liquidity range chart
 - 点击表头排序
 
+## 架构约定
+
+项目目前采用轻量单体服务，保持部署简单，但按边界组织代码：
+
+- `server.js`：HTTP 入口、路由编排和业务服务调用；新增 API 先在这里注册，再逐步抽到 `src/`。
+- `src/config.js`：端口、外部数据源、缓存、并发和数据文件路径的唯一配置入口。
+- `public/`：按功能拆分的页面脚本；`shared.js` 放跨页面格式化和通用渲染逻辑。
+- `scripts/`：独立后台任务，例如 Telegram 推送，不在页面里执行定时任务。
+- `data/`：运行时状态和历史记录，已被 Git 忽略，不应提交 Token 或用户数据。
+
+新增功能建议遵循：数据源/缓存 -> API -> 页面或后台任务 -> 文档；不要把 Token、服务器地址或运行时 JSON 写进源码。
+
+本地提交前运行：
+
+```bash
+npm run check
+git diff --check
+```
+
 ## 本地启动
 
 ```bash
@@ -79,6 +98,7 @@ http://服务器IP:8787/smallcap.html
 - `PORT`: 服务端口，默认 `8787`
 - `BSC_RPC`: RPC endpoint，默认 `https://bsc-dataseed.binance.org`
 - `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`: 如服务器需要代理访问外部接口，可设置代理
+- `CME_FEDWATCH_API_URL`: 可选，覆盖 FedWatch API 地址
 
 ## 数据源
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "check": "node --check server.js && node --check public/app.js && node --check public/home.js && node --check public/onchain.js && node --check public/reversal.js && node --check public/smallcap.js && node --check scripts/telegram-signals.js",
     "notify:telegram": "node scripts/telegram-signals.js"
   },
   "dependencies": {
