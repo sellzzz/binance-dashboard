@@ -5,8 +5,9 @@ import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { Interface } from "ethers";
 import { config } from "./src/config.js";
 import { createJsonStore } from "./src/json-store.js";
+import { createRouter } from "./src/router.js";
 
-const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
+const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, onchainPriceCacheMs: ONCHAIN_PRICE_CACHE_MS, onchainCheckConcurrency: ONCHAIN_CHECK_CONCURRENCY, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
 
 let symbolsCache = { at: 0, data: [] };
 let marketCapCache = { at: 0, data: new Map() };
@@ -22,6 +23,8 @@ let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 let treasuryCurveCache = { at: 0, data: null };
 let onchainAlerts = null;
+let onchainCheckInFlight = false;
+const onchainSpotPriceCache = new Map();
 
 const reversalStore = createJsonStore({ file: REVERSAL_HISTORY_FILE, fallback: [], limit: REVERSAL_HISTORY_LIMIT });
 const onchainStore = createJsonStore({ file: ONCHAIN_ALERTS_FILE, fallback: { alerts: [], events: [] } });
@@ -1054,7 +1057,10 @@ async function buildPancakeLiquidityRange(symbol) {
 }
 
 async function getOnchainSpotPrice(address) {
-  const poolInfo = await getBscPancakeV3PoolByAddress(address);
+  const cacheKey = String(address).toLowerCase();
+  const cached = onchainSpotPriceCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < ONCHAIN_PRICE_CACHE_MS) return cached.data;
+  const poolInfo = await getBscPancakeV3PoolByAddress(cacheKey);
   if (!poolInfo?.pairAddress) throw new Error("未找到 PancakeSwap V3 池子");
   const pool = poolInfo.pairAddress;
   const [slot0Result, token0Result, token1Result] = await Promise.all([
@@ -1077,7 +1083,9 @@ async function getOnchainSpotPrice(address) {
   const baseSymbol = baseIsToken0 ? symbol0Result[0] : symbol1Result[0];
   const quoteSymbol = baseIsToken0 ? symbol1Result[0] : symbol0Result[0];
   const price = baseIsToken0 ? price0 : 1 / price0;
-  return { address: String(address).toLowerCase(), pool, price, baseSymbol, quoteSymbol, liquidityUsd: poolInfo.liquidityUsd, checkedAt: new Date().toISOString() };
+  const data = { address: cacheKey, pool, price, baseSymbol, quoteSymbol, liquidityUsd: poolInfo.liquidityUsd, checkedAt: new Date().toISOString() };
+  onchainSpotPriceCache.set(cacheKey, { at: Date.now(), data });
+  return data;
 }
 
 async function loadOnchainAlerts() {
@@ -1122,11 +1130,14 @@ function alertIsOutside(alert, price) {
 }
 
 async function checkOnchainAlerts() {
-  const store = await loadOnchainAlerts();
-  const now = Date.now();
-  let changed = false;
-  for (const alert of store.alerts.filter((item) => item.enabled)) {
-    if (alert.lastCheckedAt && now - new Date(alert.lastCheckedAt).getTime() < alert.interval * 1000) continue;
+  if (onchainCheckInFlight) return;
+  onchainCheckInFlight = true;
+  try {
+    const store = await loadOnchainAlerts();
+    const now = Date.now();
+    let changed = false;
+    const dueAlerts = store.alerts.filter((item) => item.enabled && (!item.lastCheckedAt || now - new Date(item.lastCheckedAt).getTime() >= item.interval * 1000));
+    await mapLimit(dueAlerts, ONCHAIN_CHECK_CONCURRENCY, async (alert) => {
     try {
       const quote = await getOnchainSpotPrice(alert.address);
       const price = quote.price;
@@ -1151,8 +1162,11 @@ async function checkOnchainAlerts() {
       alert.lastCheckedAt = new Date(now).toISOString();
       changed = true;
     }
+    });
+    if (changed) await saveOnchainAlerts();
+  } finally {
+    onchainCheckInFlight = false;
   }
-  if (changed) await saveOnchainAlerts();
 }
 
 async function handleOnchainAlerts(req, res) {
@@ -1470,6 +1484,17 @@ async function handleMacroOverview(req, res) {
   }
 }
 
+async function handleLiquidityRange(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
+  if (!symbol) return json(res, 400, { error: "Missing symbol" });
+  try {
+    return json(res, 200, await buildPancakeLiquidityRange(symbol));
+  } catch (error) {
+    return json(res, 502, { error: error.message });
+  }
+}
+
 function handleHealth(req, res) {
   json(res, 200, {
     status: "ok",
@@ -1480,6 +1505,14 @@ function handleHealth(req, res) {
       marketCaps: marketCapCache.data.size,
       fundingRates: fundingCache.data.size,
       scans: scanCache.size,
+      onchainSpotPrices: onchainSpotPriceCache.size,
+    },
+    schedulers: {
+      onchainAlertChecker: onchainCheckInFlight ? "running" : "idle",
+    },
+    persistence: {
+      onchainAlertsLoaded: Boolean(onchainAlerts),
+      reversalHistoryLoaded: Boolean(reversalHistory),
     },
   });
 }
@@ -1514,36 +1547,23 @@ async function serveStatic(req, res) {
   }
 }
 
-const server = http.createServer((req, res) => {
-  if (req.url === "/api/health" || req.url === "/healthz") {
-    handleHealth(req, res);
-  } else if (req.url.startsWith("/api/reversal/scan")) {
-    handleReversalScan(req, res);
-  } else if (req.url.startsWith("/api/reversal/history")) {
-    handleReversalHistory(req, res);
-  } else if (req.url.startsWith("/api/onchain/alerts/events")) {
-    handleOnchainEvents(req, res);
-  } else if (req.url.startsWith("/api/onchain/alerts")) {
-    handleOnchainAlerts(req, res);
-  } else if (req.url.startsWith("/api/liquidity-range")) {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
-    if (!symbol) return json(res, 400, { error: "Missing symbol" });
-    buildPancakeLiquidityRange(symbol)
-      .then((payload) => json(res, 200, payload))
-      .catch((error) => json(res, 502, { error: error.message }));
-  } else if (req.url.startsWith("/api/scan")) {
-    handleScan(req, res);
-  } else if (req.url.startsWith("/api/macro/vix")) {
-    handleVix(req, res);
-  } else if (req.url.startsWith("/api/macro/dxy")) {
-    handleDxy(req, res);
-  } else if (req.url.startsWith("/api/macro/all")) {
-    handleMacroOverview(req, res);
-  } else {
-    serveStatic(req, res);
-  }
+const dispatchRequest = createRouter({
+  routes: [
+    { match: (req) => req.url === "/api/health" || req.url === "/healthz", handler: handleHealth },
+    { match: (req) => req.url.startsWith("/api/reversal/scan"), handler: handleReversalScan },
+    { match: (req) => req.url.startsWith("/api/reversal/history"), handler: handleReversalHistory },
+    { match: (req) => req.url.startsWith("/api/onchain/alerts/events"), handler: handleOnchainEvents },
+    { match: (req) => req.url.startsWith("/api/onchain/alerts"), handler: handleOnchainAlerts },
+    { match: (req) => req.url.startsWith("/api/liquidity-range"), handler: handleLiquidityRange },
+    { match: (req) => req.url.startsWith("/api/scan"), handler: handleScan },
+    { match: (req) => req.url.startsWith("/api/macro/vix"), handler: handleVix },
+    { match: (req) => req.url.startsWith("/api/macro/dxy"), handler: handleDxy },
+    { match: (req) => req.url.startsWith("/api/macro/all"), handler: handleMacroOverview },
+  ],
+  fallback: serveStatic,
 });
+
+const server = http.createServer(dispatchRequest);
 
 server.listen(PORT, () => {
   console.log(`OI dashboard running at http://localhost:${PORT}`);

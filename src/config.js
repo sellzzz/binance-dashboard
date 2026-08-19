@@ -19,6 +19,8 @@ export const config = Object.freeze({
   reversalHistoryLimit: 500,
   onchainAlertsFile: join(dataDir, "onchain-alerts.json"),
   onchainAlertLimit: 200,
+  onchainPriceCacheMs: 30_000,
+  onchainCheckConcurrency: 4,
   fredApi: "https://api.stlouisfed.org/fred/series/observations",
   treasuryCurveCsv: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv",
   cmeFedwatchApi: process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1",
