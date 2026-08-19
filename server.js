@@ -892,6 +892,31 @@ async function getBscPancakeV3Pool(symbolInfo) {
   return data;
 }
 
+async function getBscPancakeV3PoolByAddress(address) {
+  const normalized = String(address || "").toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(normalized)) return null;
+  const cacheKey = `pcs-v3-address:${normalized}`;
+  const cached = pancakeV3PoolCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.data;
+
+  const pairs = await dexscreener(`/token-pairs/v1/bsc/${normalized}`);
+  const candidates = Array.isArray(pairs)
+    ? pairs.filter((pair) => {
+        const dex = String(pair.dexId || "").toLowerCase();
+        const labels = (pair.labels || []).map((item) => String(item).toLowerCase());
+        return pair.chainId === "bsc" && dex.includes("pancake") && (dex.includes("v3") || labels.includes("v3"));
+      })
+    : [];
+  const best = candidates
+    .filter((pair) => Number.isFinite(Number(pair.liquidity?.usd)))
+    .sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0))[0];
+  const data = best
+    ? { tokenAddress: normalized, pairAddress: best.pairAddress, dexId: best.dexId, url: best.url, liquidityUsd: Number(best.liquidity?.usd) || null, baseSymbol: best.baseToken?.symbol, quoteSymbol: best.quoteToken?.symbol }
+    : null;
+  pancakeV3PoolCache.set(cacheKey, { at: Date.now(), data });
+  return data;
+}
+
 function tickToPrice(tick, decimals0, decimals1) {
   return Math.pow(1.0001, tick) * Math.pow(10, decimals0 - decimals1);
 }
@@ -908,11 +933,12 @@ async function buildPancakeLiquidityRange(symbol) {
   const cached = pancakeRangeCache.get(symbol);
   if (cached && Date.now() - cached.at < 5 * 60_000) return cached.data;
 
-  const symbols = await getUsdtPerpetualSymbols();
+  const isAddress = /^0x[a-f0-9]{40}$/i.test(symbol);
+  const symbols = isAddress ? [] : await getUsdtPerpetualSymbols();
   const symbolInfo = symbols.find((s) => s.symbol === symbol);
-  if (!symbolInfo) throw new Error("Unknown Binance futures symbol");
+  if (!isAddress && !symbolInfo) throw new Error("Unknown Binance futures symbol or BSC token address");
 
-  const poolInfo = await getBscPancakeV3Pool(symbolInfo);
+  const poolInfo = isAddress ? await getBscPancakeV3PoolByAddress(symbol) : await getBscPancakeV3Pool(symbolInfo);
   if (!poolInfo?.pairAddress) {
     return { symbol, hasPancakeV3Pool: false, message: "未找到 PancakeSwap V3 BSC 池子" };
   }
@@ -1010,7 +1036,9 @@ async function buildPancakeLiquidityRange(symbol) {
 
   const currentPrice0 = tickToPrice(currentTick, decimals0, decimals1);
   const data = {
-    symbol,
+    symbol: isAddress ? `${baseSymbol}/${quoteSymbol}` : symbol,
+    query: symbol,
+    tokenAddress: poolInfo.tokenAddress,
     hasPancakeV3Pool: true,
     pool,
     poolUrl: poolInfo.url,
