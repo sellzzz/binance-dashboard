@@ -1,9 +1,10 @@
 import http from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { Interface } from "ethers";
 import { config } from "./src/config.js";
+import { createJsonStore } from "./src/json-store.js";
 
 const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
 
@@ -17,12 +18,13 @@ let scanCache = new Map();
 let pancakeRangeCache = new Map();
 let reversalCache = new Map();
 let reversalHistory = null;
-let reversalHistoryWrite = Promise.resolve();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 let treasuryCurveCache = { at: 0, data: null };
 let onchainAlerts = null;
-let onchainAlertsWrite = Promise.resolve();
+
+const reversalStore = createJsonStore({ file: REVERSAL_HISTORY_FILE, fallback: [], limit: REVERSAL_HISTORY_LIMIT });
+const onchainStore = createJsonStore({ file: ONCHAIN_ALERTS_FILE, fallback: { alerts: [], events: [] } });
 
 const POOL_IFACE = new Interface([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
@@ -361,13 +363,8 @@ function buildReversalSignal(asset, candles) {
 
 async function loadReversalHistory() {
   if (reversalHistory) return reversalHistory;
-  try {
-    const raw = await readFile(REVERSAL_HISTORY_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    reversalHistory = Array.isArray(parsed) ? parsed.slice(0, REVERSAL_HISTORY_LIMIT) : [];
-  } catch {
-    reversalHistory = [];
-  }
+  const parsed = await reversalStore.load();
+  reversalHistory = Array.isArray(parsed) ? parsed.slice(0, REVERSAL_HISTORY_LIMIT) : [];
   return reversalHistory;
 }
 
@@ -393,11 +390,7 @@ async function recordReversalSignals(signals) {
   if (!additions.length) return history;
   history.unshift(...additions);
   reversalHistory = history.slice(0, REVERSAL_HISTORY_LIMIT);
-  reversalHistoryWrite = reversalHistoryWrite.then(async () => {
-    await mkdir(join(process.cwd(), "data"), { recursive: true });
-    await writeFile(REVERSAL_HISTORY_FILE, JSON.stringify(reversalHistory, null, 2), "utf8");
-  });
-  await reversalHistoryWrite;
+  await reversalStore.save(reversalHistory);
   return reversalHistory;
 }
 
@@ -1089,23 +1082,14 @@ async function getOnchainSpotPrice(address) {
 
 async function loadOnchainAlerts() {
   if (onchainAlerts) return onchainAlerts;
-  try {
-    onchainAlerts = JSON.parse(await readFile(ONCHAIN_ALERTS_FILE, "utf8"));
-  } catch {
-    onchainAlerts = { alerts: [], events: [] };
-  }
+  onchainAlerts = await onchainStore.load();
   if (!Array.isArray(onchainAlerts.alerts)) onchainAlerts.alerts = [];
   if (!Array.isArray(onchainAlerts.events)) onchainAlerts.events = [];
   return onchainAlerts;
 }
 
 async function saveOnchainAlerts() {
-  const snapshot = JSON.stringify(onchainAlerts, null, 2);
-  onchainAlertsWrite = onchainAlertsWrite.then(async () => {
-    await mkdir(join(process.cwd(), "data"), { recursive: true });
-    await writeFile(ONCHAIN_ALERTS_FILE, snapshot, "utf8");
-  });
-  return onchainAlertsWrite;
+  return onchainStore.save(onchainAlerts);
 }
 
 function normalizeOnchainAlert(input) {
