@@ -1,13 +1,19 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 const DEFAULT_SCAN_URL =
   "http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500";
 const DEFAULT_SMALLCAP_SCAN_URL =
   "http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=0&maxSymbols=500&smallCapMaxUsd=100000000&smallCapMinChange=30";
+const DEFAULT_REVERSAL_HISTORY_URL = "http://127.0.0.1:8787/api/reversal/history?limit=100";
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const chatId = process.env.TELEGRAM_CHAT_ID;
 const scanUrl = process.env.SIGNAL_SCAN_URL || DEFAULT_SCAN_URL;
 const smallCapScanUrl = process.env.SMALLCAP_SCAN_URL || DEFAULT_SMALLCAP_SCAN_URL;
+const reversalHistoryUrl = process.env.REVERSAL_HISTORY_URL || DEFAULT_REVERSAL_HISTORY_URL;
+const reversalStateFile = process.env.REVERSAL_NOTIFY_STATE_FILE || join(process.cwd(), "data", "telegram-reversal-state.json");
 const intervalMs = Number(process.env.SIGNAL_INTERVAL_MS || DEFAULT_INTERVAL_MS);
 const once = process.argv.includes("--once");
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -60,6 +66,14 @@ function fmtTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function fmtPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "-";
+  if (Math.abs(n) >= 100) return n.toFixed(2);
+  if (Math.abs(n) >= 1) return n.toFixed(3);
+  return n.toPrecision(5);
 }
 
 async function fetchWithTimeout(url, options = {}) {
@@ -118,6 +132,52 @@ function buildSmallCapMessage(data) {
   ].join("\n")).join("\n\n")}`;
 }
 
+function buildReversalMessage(records) {
+  const header = [
+    "<b>Daily Key Zone Signals</b>",
+    `New records: ${records.length}`,
+    "Timeframe: 1D | Manual decision only",
+  ].join("\n");
+  const rows = records.slice(0, 10).map((row, index) => {
+    const support = row.type === "support-touch";
+    const state = row.status === "approaching" ? "Approaching alert" : "Second revisit";
+    return [
+      `${index + 1}. <b>${htmlEscape(row.symbol || "-")}</b> · ${state}`,
+      `${support ? "Support / potential rebound" : "Resistance / potential pullback"}`,
+      `Price ${fmtPrice(row.current?.price)} | Zone ${fmtPrice(row.zoneLow)} - ${fmtPrice(row.zoneHigh)}`,
+      `Recorded ${fmtTime(row.recordedAt)} | Age ${row.ageBars ?? "-"} daily bars`,
+    ].join("\n");
+  });
+  return `${header}\n\n${rows.join("\n\n")}`;
+}
+
+async function readReversalState() {
+  try {
+    return JSON.parse(await readFile(reversalStateFile, "utf8"));
+  } catch {
+    return { initialized: false, sent: [] };
+  }
+}
+
+async function findNewReversalRecords(data) {
+  const records = Array.isArray(data.records) ? data.records : [];
+  const state = await readReversalState();
+  const sent = new Set(Array.isArray(state.sent) ? state.sent : []);
+  const fresh = records.filter((record) => record.recordKey && !sent.has(record.recordKey));
+  if (!state.initialized && !fresh.length) return { fresh: [], state };
+  if (!state.initialized) return { fresh: fresh.slice(0, 10), state };
+  return { fresh, state };
+}
+
+async function markReversalRecordsSent(records, state) {
+  if (!records.length) return;
+  const sent = new Set(Array.isArray(state.sent) ? state.sent : []);
+  records.forEach((record) => sent.add(record.recordKey));
+  const next = { initialized: true, sent: Array.from(sent).slice(-500), updatedAt: new Date().toISOString() };
+  await mkdir(join(process.cwd(), "data"), { recursive: true });
+  await writeFile(reversalStateFile, JSON.stringify(next, null, 2), "utf8");
+}
+
 async function sendTelegram(text) {
   const response = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -136,16 +196,26 @@ async function sendTelegram(text) {
 }
 
 async function run() {
-  const results = await Promise.allSettled([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl)]);
-  const [signalResult, smallCapResult] = results;
+  const results = await Promise.allSettled([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl), fetchWithTimeout(reversalHistoryUrl)]);
+  const [signalResult, smallCapResult, reversalResult] = results;
   const signalData = signalResult.status === "fulfilled" ? await signalResult.value.json().catch(() => ({})) : { error: signalResult.reason?.message };
   const smallCapData = smallCapResult.status === "fulfilled" ? await smallCapResult.value.json().catch(() => ({})) : { error: smallCapResult.reason?.message };
+  const reversalData = reversalResult.status === "fulfilled" ? await reversalResult.value.json().catch(() => ({})) : { error: reversalResult.reason?.message };
   const signalOk = signalResult.status === "fulfilled" && signalResult.value.ok;
   const smallCapOk = smallCapResult.status === "fulfilled" && smallCapResult.value.ok;
   const sections = [];
   sections.push(signalOk ? buildMessage(signalData) : `<b>Position Change Signals</b>\n读取失败: ${htmlEscape(signalData.error || `HTTP ${signalResult.value?.status || "network"}`)}`);
   sections.push(smallCapOk ? buildSmallCapMessage(smallCapData) : `<b>Low-Cap Position Signals</b>\n读取失败: ${htmlEscape(smallCapData.error || `HTTP ${smallCapResult.value?.status || "network"}`)}`);
+  let reversalState = null;
+  let newReversalRecords = [];
+  if (reversalResult.status === "fulfilled" && reversalResult.value.ok) {
+    const fresh = await findNewReversalRecords(reversalData);
+    reversalState = fresh.state;
+    newReversalRecords = fresh.fresh;
+    if (newReversalRecords.length) sections.push(buildReversalMessage(newReversalRecords));
+  }
   await sendTelegram(sections.join("\n\n"));
+  if (reversalState && newReversalRecords.length) await markReversalRecordsSent(newReversalRecords, reversalState);
   console.log(`[${new Date().toISOString()}] sent position=${Array.isArray(signalData.alerts) ? signalData.alerts.length : 0}, lowcap=${Array.isArray(smallCapData.smallCaps) ? smallCapData.smallCaps.length : 0}`);
 }
 

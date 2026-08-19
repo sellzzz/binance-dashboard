@@ -128,5 +128,6 @@ Optional overrides:
 ```bash
 SIGNAL_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500'
 SMALLCAP_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=0&maxSymbols=500&smallCapMaxUsd=100000000&smallCapMinChange=30'
+REVERSAL_HISTORY_URL='http://127.0.0.1:8787/api/reversal/history?limit=100'
 SIGNAL_INTERVAL_MS=3600000
 ```
