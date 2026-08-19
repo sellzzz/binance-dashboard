@@ -1,13 +1,26 @@
 const $ = (id) => document.getElementById(id);
 const els = { symbol: $("symbolInput"), scan: $("scanBtn"), title: $("resultTitle"), status: $("resultStatus"), state: $("poolState"), metrics: $("metrics"), meta: $("chartMeta"), chart: $("liqChart"), labels: $("chartLabels"), alertForm: $("alertForm"), alertList: $("alertList"), clearAlerts: $("clearAlertsBtn") };
 const ALERTS_KEY = "market-monitor-onchain-alerts";
+let alerts = [];
 
 function escapeHtml(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
 function readAlerts() {
-  try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || "[]"); } catch { return []; }
+  return alerts;
+}
+
+async function loadAlerts() {
+  try {
+    const response = await fetch("/api/onchain/alerts", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取警报失败");
+    alerts = Array.isArray(data.alerts) ? data.alerts : [];
+    renderAlerts();
+  } catch (error) {
+    els.alertList.innerHTML = `<div class="emptySignal">${escapeHtml(error.message)}</div>`;
+  }
 }
 
 function renderAlerts() {
@@ -20,7 +33,7 @@ function renderAlerts() {
   </article>`).join("") : '<div class="emptySignal">还没有配置价格警报</div>';
 }
 
-function saveAlert(event) {
+async function saveAlert(event) {
   event.preventDefault();
   const form = new FormData(els.alertForm);
   const item = {
@@ -34,9 +47,10 @@ function saveAlert(event) {
     note: String(form.get("note") || "").trim(),
     createdAt: Date.now(),
   };
-  const alerts = readAlerts();
-  alerts.unshift(item);
-  localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts.slice(0, 50)));
+  const response = await fetch("/api/onchain/alerts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item) });
+  const data = await response.json();
+  if (!response.ok) { els.alertList.innerHTML = `<div class="emptySignal">${escapeHtml(data.error || "保存警报失败")}</div>`; return; }
+  alerts = [data.alert, ...alerts.filter((alert) => alert.id !== data.alert.id)];
   els.alertForm.reset();
   $("alertTolerance").value = "1";
   $("alertInterval").value = "300";
@@ -117,16 +131,20 @@ async function scan() {
 els.scan.addEventListener("click", scan);
 els.symbol.addEventListener("keydown", (event) => { if (event.key === "Enter") scan(); });
 els.alertForm.addEventListener("submit", saveAlert);
-els.alertList.addEventListener("click", (event) => {
+els.alertList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-remove-alert]");
   if (!button) return;
-  const alerts = readAlerts();
-  alerts.splice(Number(button.dataset.removeAlert), 1);
-  localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
+  const item = readAlerts()[Number(button.dataset.removeAlert)];
+  await fetch(`/api/onchain/alerts?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+  alerts = alerts.filter((alert) => alert.id !== item.id);
   renderAlerts();
 });
-els.clearAlerts.addEventListener("click", () => { localStorage.removeItem(ALERTS_KEY); renderAlerts(); });
+els.clearAlerts.addEventListener("click", async () => {
+  for (const item of [...alerts]) await fetch(`/api/onchain/alerts?id=${encodeURIComponent(item.id)}`, { method: "DELETE" });
+  alerts = [];
+  renderAlerts();
+});
 $("alertPrice").addEventListener("input", updateMarketCapEstimate);
 $("alertSupply").addEventListener("input", updateMarketCapEstimate);
 updateMarketCapEstimate();
-renderAlerts();
+loadAlerts();

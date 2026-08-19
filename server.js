@@ -17,6 +17,8 @@ const MAX_SCAN_CACHE = 60;
 const REVERSAL_CACHE_MS = 5 * 60_000;
 const REVERSAL_HISTORY_FILE = join(process.cwd(), "data", "reversal-signals.json");
 const REVERSAL_HISTORY_LIMIT = 500;
+const ONCHAIN_ALERTS_FILE = join(process.cwd(), "data", "onchain-alerts.json");
+const ONCHAIN_ALERT_LIMIT = 200;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const TREASURY_CURVE_CSV = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
@@ -36,6 +38,8 @@ let reversalHistoryWrite = Promise.resolve();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 let treasuryCurveCache = { at: 0, data: null };
+let onchainAlerts = null;
+let onchainAlertsWrite = Promise.resolve();
 
 const POOL_IFACE = new Interface([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
@@ -85,6 +89,15 @@ function parseNumber(value, fallback, min, max) {
 
 function parseInteger(value, fallback, min, max) {
   return Math.round(parseNumber(value, fallback, min, max));
+}
+
+async function readJsonBody(req) {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 100_000) throw new Error("Request body too large");
+  }
+  return body ? JSON.parse(body) : {};
 }
 
 async function binance(path) {
@@ -1064,6 +1077,148 @@ async function buildPancakeLiquidityRange(symbol) {
   return data;
 }
 
+async function getOnchainSpotPrice(address) {
+  const poolInfo = await getBscPancakeV3PoolByAddress(address);
+  if (!poolInfo?.pairAddress) throw new Error("未找到 PancakeSwap V3 池子");
+  const pool = poolInfo.pairAddress;
+  const [slot0Result, token0Result, token1Result] = await Promise.all([
+    contractCall(pool, POOL_IFACE, "slot0"),
+    contractCall(pool, POOL_IFACE, "token0"),
+    contractCall(pool, POOL_IFACE, "token1"),
+  ]);
+  const token0 = token0Result[0];
+  const token1 = token1Result[0];
+  const [decimals0Result, decimals1Result, symbol0Result, symbol1Result] = await Promise.all([
+    contractCall(token0, ERC20_IFACE, "decimals").catch(() => [18]),
+    contractCall(token1, ERC20_IFACE, "decimals").catch(() => [18]),
+    contractCall(token0, ERC20_IFACE, "symbol").catch(() => ["TOKEN0"]),
+    contractCall(token1, ERC20_IFACE, "symbol").catch(() => ["TOKEN1"]),
+  ]);
+  const decimals0 = Number(decimals0Result[0]);
+  const decimals1 = Number(decimals1Result[0]);
+  const price0 = tickToPrice(Number(slot0Result.tick), decimals0, decimals1);
+  const baseIsToken0 = token0.toLowerCase() === String(address).toLowerCase();
+  const baseSymbol = baseIsToken0 ? symbol0Result[0] : symbol1Result[0];
+  const quoteSymbol = baseIsToken0 ? symbol1Result[0] : symbol0Result[0];
+  const price = baseIsToken0 ? price0 : 1 / price0;
+  return { address: String(address).toLowerCase(), pool, price, baseSymbol, quoteSymbol, liquidityUsd: poolInfo.liquidityUsd, checkedAt: new Date().toISOString() };
+}
+
+async function loadOnchainAlerts() {
+  if (onchainAlerts) return onchainAlerts;
+  try {
+    onchainAlerts = JSON.parse(await readFile(ONCHAIN_ALERTS_FILE, "utf8"));
+  } catch {
+    onchainAlerts = { alerts: [], events: [] };
+  }
+  if (!Array.isArray(onchainAlerts.alerts)) onchainAlerts.alerts = [];
+  if (!Array.isArray(onchainAlerts.events)) onchainAlerts.events = [];
+  return onchainAlerts;
+}
+
+async function saveOnchainAlerts() {
+  const snapshot = JSON.stringify(onchainAlerts, null, 2);
+  onchainAlertsWrite = onchainAlertsWrite.then(async () => {
+    await mkdir(join(process.cwd(), "data"), { recursive: true });
+    await writeFile(ONCHAIN_ALERTS_FILE, snapshot, "utf8");
+  });
+  return onchainAlertsWrite;
+}
+
+function normalizeOnchainAlert(input) {
+  const address = String(input.address || "").trim().toLowerCase();
+  if (!/^0x[a-f0-9]{40}$/.test(address)) throw new Error("无效的 BSC 合约地址");
+  const price = Number(input.price);
+  if (!Number.isFinite(price) || price <= 0) throw new Error("目标价格必须大于 0");
+  const supply = parseNumber(input.supply, 1_000_000_000, 0, 1e30);
+  const tolerance = parseNumber(input.tolerance, 1, 0, 50);
+  const interval = parseInteger(input.interval, 300, 60, 3600);
+  const mode = ["enter", "below", "above"].includes(input.mode) ? input.mode : "enter";
+  return {
+    id: String(input.id || `${address}:${price}:${Date.now()}`), address, price, supply, marketCap: price * supply, mode, tolerance, interval,
+    note: String(input.note || "").slice(0, 160), enabled: input.enabled !== false, armed: true, lastCheckedAt: null, lastPrice: null, lastTriggeredAt: null,
+  };
+}
+
+function alertIsTriggered(alert, price) {
+  const band = alert.price * (alert.tolerance / 100);
+  if (alert.mode === "below") return price <= alert.price - band;
+  if (alert.mode === "above") return price >= alert.price + band;
+  return Math.abs(price - alert.price) <= band;
+}
+
+function alertIsOutside(alert, price) {
+  const band = alert.price * (alert.tolerance / 100);
+  if (alert.mode === "below") return price >= alert.price;
+  if (alert.mode === "above") return price <= alert.price;
+  return Math.abs(price - alert.price) > band * 1.25;
+}
+
+async function checkOnchainAlerts() {
+  const store = await loadOnchainAlerts();
+  const now = Date.now();
+  let changed = false;
+  for (const alert of store.alerts.filter((item) => item.enabled)) {
+    if (alert.lastCheckedAt && now - new Date(alert.lastCheckedAt).getTime() < alert.interval * 1000) continue;
+    try {
+      const quote = await getOnchainSpotPrice(alert.address);
+      const price = quote.price;
+      alert.lastCheckedAt = quote.checkedAt;
+      alert.lastPrice = price;
+      changed = true;
+      if (!alert.armed && alertIsOutside(alert, price)) {
+        alert.armed = true;
+        changed = true;
+      }
+      if (alert.armed && alertIsTriggered(alert, price)) {
+        const event = { id: `${alert.id}:${now}`, alertId: alert.id, address: alert.address, symbol: quote.baseSymbol, quoteSymbol: quote.quoteSymbol, price, targetPrice: alert.price, mode: alert.mode, tolerance: alert.tolerance, supply: alert.supply, marketCap: alert.marketCap, note: alert.note, triggeredAt: new Date(now).toISOString() };
+        store.events.unshift(event);
+        store.events = store.events.slice(0, ONCHAIN_ALERT_LIMIT);
+        alert.armed = false;
+        alert.lastTriggeredAt = event.triggeredAt;
+        changed = true;
+        console.log(`[onchain] alert ${quote.baseSymbol} ${price}`);
+      }
+    } catch (error) {
+      alert.lastError = error.message;
+      alert.lastCheckedAt = new Date(now).toISOString();
+      changed = true;
+    }
+  }
+  if (changed) await saveOnchainAlerts();
+}
+
+async function handleOnchainAlerts(req, res) {
+  const store = await loadOnchainAlerts();
+  if (req.method === "GET") return json(res, 200, { alerts: store.alerts });
+  if (req.method === "POST") {
+    try {
+      const input = await readJsonBody(req);
+      const alert = normalizeOnchainAlert(input);
+      const index = store.alerts.findIndex((item) => item.id === alert.id);
+      if (index >= 0) store.alerts[index] = { ...store.alerts[index], ...alert };
+      else store.alerts.unshift(alert);
+      store.alerts = store.alerts.slice(0, ONCHAIN_ALERT_LIMIT);
+      await saveOnchainAlerts();
+      return json(res, 200, { alert });
+    } catch (error) { return json(res, 400, { error: error.message }); }
+  }
+  if (req.method === "DELETE") {
+    const id = new URL(req.url, `http://${req.headers.host}`).searchParams.get("id");
+    store.alerts = store.alerts.filter((item) => item.id !== id);
+    await saveOnchainAlerts();
+    return json(res, 200, { alerts: store.alerts });
+  }
+  return json(res, 405, { error: "Method not allowed" });
+}
+
+async function handleOnchainEvents(req, res) {
+  const store = await loadOnchainAlerts();
+  const since = Number(new URL(req.url, `http://${req.headers.host}`).searchParams.get("since") || 0);
+  const events = store.events.filter((event) => new Date(event.triggeredAt).getTime() > since);
+  return json(res, 200, { events });
+}
+
 async function getMarketCaps() {
   if (Date.now() - marketCapCache.at < 10 * 60_000 && marketCapCache.data.size) {
     return marketCapCache.data;
@@ -1399,6 +1554,10 @@ const server = http.createServer((req, res) => {
     handleReversalScan(req, res);
   } else if (req.url.startsWith("/api/reversal/history")) {
     handleReversalHistory(req, res);
+  } else if (req.url.startsWith("/api/onchain/alerts/events")) {
+    handleOnchainEvents(req, res);
+  } else if (req.url.startsWith("/api/onchain/alerts")) {
+    handleOnchainAlerts(req, res);
   } else if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();
@@ -1432,6 +1591,8 @@ server.listen(PORT, () => {
   };
   setTimeout(runAutomaticReversalScan, 3_000);
   setInterval(runAutomaticReversalScan, 2 * 60 * 60_000);
+  setTimeout(() => checkOnchainAlerts().catch((error) => console.error(`[onchain] alert check failed: ${error.message}`)), 5_000);
+  setInterval(() => checkOnchainAlerts().catch((error) => console.error(`[onchain] alert check failed: ${error.message}`)), 60_000);
 });
 
 server.on("error", (error) => {

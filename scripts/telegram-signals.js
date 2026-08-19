@@ -6,6 +6,7 @@ const DEFAULT_SCAN_URL =
 const DEFAULT_SMALLCAP_SCAN_URL =
   "http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=0&maxSymbols=500&smallCapMaxUsd=100000000&smallCapMinChange=30";
 const DEFAULT_REVERSAL_HISTORY_URL = "http://127.0.0.1:8787/api/reversal/history?limit=100";
+const DEFAULT_ONCHAIN_EVENTS_URL = "http://127.0.0.1:8787/api/onchain/alerts/events";
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -13,7 +14,9 @@ const chatId = process.env.TELEGRAM_CHAT_ID;
 const scanUrl = process.env.SIGNAL_SCAN_URL || DEFAULT_SCAN_URL;
 const smallCapScanUrl = process.env.SMALLCAP_SCAN_URL || DEFAULT_SMALLCAP_SCAN_URL;
 const reversalHistoryUrl = process.env.REVERSAL_HISTORY_URL || DEFAULT_REVERSAL_HISTORY_URL;
+const onchainEventsUrl = process.env.ONCHAIN_EVENTS_URL || DEFAULT_ONCHAIN_EVENTS_URL;
 const reversalStateFile = process.env.REVERSAL_NOTIFY_STATE_FILE || join(process.cwd(), "data", "telegram-reversal-state.json");
+const onchainStateFile = process.env.ONCHAIN_NOTIFY_STATE_FILE || join(process.cwd(), "data", "telegram-onchain-state.json");
 const intervalMs = Number(process.env.SIGNAL_INTERVAL_MS || DEFAULT_INTERVAL_MS);
 const once = process.argv.includes("--once");
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -151,6 +154,34 @@ function buildReversalMessage(records) {
   return `${header}\n\n${rows.join("\n\n")}`;
 }
 
+function buildOnchainMessage(events) {
+  const rows = events.slice(0, 10).map((event, index) => [
+    `${index + 1}. <b>${htmlEscape(event.symbol || event.address)}</b> · ${event.mode === "below" ? "跌破" : event.mode === "above" ? "突破" : "进入区间"}`,
+    `Price ${fmtPrice(event.price)} | Target ${fmtPrice(event.targetPrice)} | MCap ${fmtUsd(event.marketCap)}`,
+    `Address ${htmlEscape(event.address)}${event.note ? ` | ${htmlEscape(event.note)}` : ""}`,
+  ].join("\n"));
+  return `<b>On-chain Price Alerts</b>\nNew events: ${events.length}\n\n${rows.join("\n\n")}`;
+}
+
+async function readOnchainState() {
+  try { return JSON.parse(await readFile(onchainStateFile, "utf8")); } catch { return { sent: [] }; }
+}
+
+async function findNewOnchainEvents(data) {
+  const state = await readOnchainState();
+  const sent = new Set(Array.isArray(state.sent) ? state.sent : []);
+  const fresh = (Array.isArray(data.events) ? data.events : []).filter((event) => event.id && !sent.has(event.id));
+  return { fresh, state };
+}
+
+async function markOnchainEventsSent(events, state) {
+  if (!events.length) return;
+  const sent = new Set(Array.isArray(state.sent) ? state.sent : []);
+  events.forEach((event) => sent.add(event.id));
+  await mkdir(join(process.cwd(), "data"), { recursive: true });
+  await writeFile(onchainStateFile, JSON.stringify({ sent: Array.from(sent).slice(-500), updatedAt: new Date().toISOString() }, null, 2), "utf8");
+}
+
 async function readReversalState() {
   try {
     return JSON.parse(await readFile(reversalStateFile, "utf8"));
@@ -196,11 +227,12 @@ async function sendTelegram(text) {
 }
 
 async function run() {
-  const results = await Promise.allSettled([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl), fetchWithTimeout(reversalHistoryUrl)]);
-  const [signalResult, smallCapResult, reversalResult] = results;
+  const results = await Promise.allSettled([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl), fetchWithTimeout(reversalHistoryUrl), fetchWithTimeout(onchainEventsUrl)]);
+  const [signalResult, smallCapResult, reversalResult, onchainResult] = results;
   const signalData = signalResult.status === "fulfilled" ? await signalResult.value.json().catch(() => ({})) : { error: signalResult.reason?.message };
   const smallCapData = smallCapResult.status === "fulfilled" ? await smallCapResult.value.json().catch(() => ({})) : { error: smallCapResult.reason?.message };
   const reversalData = reversalResult.status === "fulfilled" ? await reversalResult.value.json().catch(() => ({})) : { error: reversalResult.reason?.message };
+  const onchainData = onchainResult.status === "fulfilled" ? await onchainResult.value.json().catch(() => ({})) : { error: onchainResult.reason?.message };
   const signalOk = signalResult.status === "fulfilled" && signalResult.value.ok;
   const smallCapOk = smallCapResult.status === "fulfilled" && smallCapResult.value.ok;
   const sections = [];
@@ -214,8 +246,17 @@ async function run() {
     newReversalRecords = fresh.fresh;
     if (newReversalRecords.length) sections.push(buildReversalMessage(newReversalRecords));
   }
+  let onchainState = null;
+  let newOnchainEvents = [];
+  if (onchainResult.status === "fulfilled" && onchainResult.value.ok) {
+    const fresh = await findNewOnchainEvents(onchainData);
+    onchainState = fresh.state;
+    newOnchainEvents = fresh.fresh;
+    if (newOnchainEvents.length) sections.push(buildOnchainMessage(newOnchainEvents));
+  }
   await sendTelegram(sections.join("\n\n"));
   if (reversalState && newReversalRecords.length) await markReversalRecordsSent(newReversalRecords, reversalState);
+  if (onchainState && newOnchainEvents.length) await markOnchainEventsSent(newOnchainEvents, onchainState);
   console.log(`[${new Date().toISOString()}] sent position=${Array.isArray(signalData.alerts) ? signalData.alerts.length : 0}, lowcap=${Array.isArray(smallCapData.smallCaps) ? smallCapData.smallCaps.length : 0}`);
 }
 
