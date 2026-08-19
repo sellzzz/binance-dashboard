@@ -1,10 +1,13 @@
 const DEFAULT_SCAN_URL =
   "http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500";
+const DEFAULT_SMALLCAP_SCAN_URL =
+  "http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=0&maxSymbols=500&smallCapMaxUsd=100000000&smallCapMinChange=30";
 const DEFAULT_INTERVAL_MS = 60 * 60 * 1000;
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const chatId = process.env.TELEGRAM_CHAT_ID;
 const scanUrl = process.env.SIGNAL_SCAN_URL || DEFAULT_SCAN_URL;
+const smallCapScanUrl = process.env.SMALLCAP_SCAN_URL || DEFAULT_SMALLCAP_SCAN_URL;
 const intervalMs = Number(process.env.SIGNAL_INTERVAL_MS || DEFAULT_INTERVAL_MS);
 const once = process.argv.includes("--once");
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -99,6 +102,22 @@ function buildMessage(data) {
   return `${header}\n\n${rows.join("\n\n")}`;
 }
 
+function buildSmallCapMessage(data) {
+  const rows = Array.isArray(data.smallCaps) ? data.smallCaps.slice().sort((a, b) => Number(b.changePct || 0) - Number(a.changePct || 0)).slice(0, 8) : [];
+  const header = [
+    "<b>Low-Cap Position Signals</b>",
+    `Time: ${htmlEscape(data.generatedAt ? fmtTime(data.generatedAt) : fmtTime(Date.now()))}`,
+    `MCap <= ${htmlEscape(fmtUsd(data.smallCap?.maxUsd))} | Change >= ${htmlEscape(data.smallCap?.minChangePct ?? "-")}%`,
+    `Scanned: ${htmlEscape(data.scanned ?? "-")} | Candidates: ${rows.length}`,
+  ].join("\n");
+  if (!rows.length) return `${header}\n\nNo low-cap signals reached the filter.`;
+  return `${header}\n\n${rows.map((row, index) => [
+    `${index + 1}. <b>${htmlEscape(row.symbol || "-")}</b> ${fmtPct(row.changePct)}`,
+    `MCap ${fmtUsd(row.marketCap)} | OI ${fmtPct(row.valueChangePct)} | Rate ${fmtRate(row.fundingRate)}`,
+    `BSC ${htmlEscape(row.bscLiquidityBand || "-")} | Liq/MCap ${fmtRatio(row.bscLiquidityToMcap)}`,
+  ].join("\n")).join("\n\n")}`;
+}
+
 async function sendTelegram(text) {
   const response = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
@@ -117,11 +136,13 @@ async function sendTelegram(text) {
 }
 
 async function run() {
-  const response = await fetchWithTimeout(scanUrl);
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Scan ${response.status}`);
-  await sendTelegram(buildMessage(data));
-  console.log(`[${new Date().toISOString()}] sent ${Array.isArray(data.alerts) ? data.alerts.length : 0} signals`);
+  const [signalResponse, smallCapResponse] = await Promise.all([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl)]);
+  const signalData = await signalResponse.json().catch(() => ({}));
+  const smallCapData = await smallCapResponse.json().catch(() => ({}));
+  if (!signalResponse.ok) throw new Error(signalData.error || `Position scan ${signalResponse.status}`);
+  if (!smallCapResponse.ok) throw new Error(smallCapData.error || `Low-cap scan ${smallCapResponse.status}`);
+  await sendTelegram(`${buildMessage(signalData)}\n\n${buildSmallCapMessage(smallCapData)}`);
+  console.log(`[${new Date().toISOString()}] sent position=${Array.isArray(signalData.alerts) ? signalData.alerts.length : 0}, lowcap=${Array.isArray(smallCapData.smallCaps) ? smallCapData.smallCaps.length : 0}`);
 }
 
 async function loop() {

@@ -111,7 +111,7 @@ export TELEGRAM_CHAT_ID='your_chat_id'
 npm run notify:telegram -- --once
 ```
 
-Run hourly with pm2:
+Run hourly with pm2 (每次同时推送仓位异动和低市值异动):
 
 ```bash
 cd /opt/binance-dashboard
@@ -125,5 +125,6 @@ Optional overrides:
 
 ```bash
 SIGNAL_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=30&maxSymbols=500'
+SMALLCAP_SCAN_URL='http://127.0.0.1:8787/api/scan?period=4h&points=5&threshold=0&maxSymbols=500&smallCapMaxUsd=100000000&smallCapMinChange=30'
 SIGNAL_INTERVAL_MS=3600000
 ```
