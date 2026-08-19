@@ -147,4 +147,4 @@ els.symbols.addEventListener("keydown", (event) => {
   if (event.key === "Enter") scan();
 });
 scan();
-setInterval(scan, 5 * 60_000);
+setInterval(scan, 2 * 60 * 60_000);

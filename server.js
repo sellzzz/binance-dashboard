@@ -1329,7 +1329,7 @@ server.listen(PORT, () => {
     }
   };
   setTimeout(runAutomaticReversalScan, 3_000);
-  setInterval(runAutomaticReversalScan, 5 * 60_000);
+  setInterval(runAutomaticReversalScan, 2 * 60 * 60_000);
 });
 
 server.on("error", (error) => {
