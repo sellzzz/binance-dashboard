@@ -102,6 +102,8 @@ npm start
 
 Create a Telegram bot with BotFather, then get your chat id. Keep both values only on the server.
 
+Use `telegram.env.example` as the template. Copy it to `telegram.env`, fill in the Token and Chat ID, then load it with `set -a; source telegram.env; set +a` before starting the notifier.
+
 Test one push:
 
 ```bash
