@@ -44,7 +44,7 @@ function fmtDateTime(value) {
 
 function renderHistory(records) {
   if (!records.length) {
-    els.historyBody.innerHTML = '<tr><td class="empty" colspan="7">暂时没有已记录信号</td></tr>';
+    els.historyBody.innerHTML = '<tr><td class="empty" colspan="5">暂时没有已记录信号</td></tr>';
     return;
   }
   els.historyBody.innerHTML = records.map((record) => {
@@ -52,12 +52,10 @@ function renderHistory(records) {
     const approaching = record.status === "approaching";
     return `<tr>
       <td>${fmtDateTime(record.recordedAt)}</td>
-      <td class="symbol">${escapeHtml(record.symbol)}</td>
-      <td>${escapeHtml(record.market)}</td>
+      <td class="symbol">${escapeHtml(record.symbol)}<small>${escapeHtml(record.market)}</small></td>
       <td class="positive">${approaching ? "接近预警" : "第二次触及"}</td>
       <td>${support ? "支撑 · 潜在反弹" : "阻力 · 潜在回落"}</td>
-      <td>${fmtPrice(record.current?.price)}</td>
-      <td>${fmtPrice(record.zoneLow)} - ${fmtPrice(record.zoneHigh)}</td>
+      <td><b>${fmtPrice(record.current?.price)}</b><small>${fmtPrice(record.zoneLow)} - ${fmtPrice(record.zoneHigh)}</small></td>
     </tr>`;
   }).join("");
 }
