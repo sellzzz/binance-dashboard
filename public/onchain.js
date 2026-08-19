@@ -15,7 +15,7 @@ function renderAlerts() {
   els.alertList.innerHTML = alerts.length ? alerts.map((item, index) => `<article class="onchainAlertItem">
     <div><strong>${escapeHtml(item.address.slice(0, 8))}…${escapeHtml(item.address.slice(-6))}</strong><span>${escapeHtml(item.note || "未填写备注")}</span></div>
     <div><b>${escapeHtml(item.price)}</b><span>${item.mode === "below" ? "跌破" : item.mode === "above" ? "突破" : "进入区间"} · ±${escapeHtml(item.tolerance)}%</span></div>
-    <div><span>市值 / 频率</span><b>${item.marketCap ? `$${Number(item.marketCap).toLocaleString("en-US")}` : "-"}</b><span>${Number(item.interval) / 60} 分钟</span></div>
+    <div><span>总量 / 目标市值</span><b>${Number(item.supply).toLocaleString("en-US")}</b><span>${item.marketCap ? `$${Number(item.marketCap).toLocaleString("en-US")}` : "-"}</span></div>
     <button type="button" class="miniBtn" data-remove-alert="${index}">删除</button>
   </article>`).join("") : '<div class="emptySignal">还没有配置价格警报</div>';
 }
@@ -26,10 +26,11 @@ function saveAlert(event) {
   const item = {
     address: String(form.get("address") || "").trim(),
     price: String(form.get("price") || "").trim(),
+    supply: String(form.get("supply") || "1000000000").trim(),
     mode: String(form.get("mode") || "enter"),
     tolerance: String(form.get("tolerance") || "1"),
     interval: String(form.get("interval") || "300"),
-    marketCap: String(form.get("marketCap") || "").trim(),
+    marketCap: String((Number(form.get("price")) * Number(form.get("supply"))) || "").trim(),
     note: String(form.get("note") || "").trim(),
     createdAt: Date.now(),
   };
@@ -39,7 +40,13 @@ function saveAlert(event) {
   els.alertForm.reset();
   $("alertTolerance").value = "1";
   $("alertInterval").value = "300";
+  $("alertSupply").value = "1000000000";
   renderAlerts();
+}
+
+function updateMarketCapEstimate() {
+  const value = Number($("alertPrice").value) * Number($("alertSupply").value);
+  $("alertMarketCap").textContent = Number.isFinite(value) && value > 0 ? fmtUsd(value) : "-";
 }
 
 function fmt(value) {
@@ -78,7 +85,6 @@ function render(data) {
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
   if (data.query && /^0x[a-f0-9]{40}$/i.test(data.query)) $("alertAddress").value = data.query;
   if (!$("alertPrice").value && Number.isFinite(Number(data.currentPrice))) $("alertPrice").value = data.currentPrice;
-  if (Number.isFinite(Number(data.marketCapUsd))) $("alertMarketCap").value = Math.round(Number(data.marketCapUsd));
   els.meta.textContent = `${data.baseSymbol} / ${data.quoteSymbol} · ${data.bins.length} 个区间`;
   const max = Math.max(...data.bins.map((bin) => Number(bin.liquidity) || 0), 1);
   els.chart.innerHTML = data.bins.map((bin) => `<div class="onchainBar ${bin.active ? "active" : ""}" style="height:${Math.max(5, Number(bin.liquidity) / max * 100)}%" title="${fmt(bin.price)} · ${fmt(bin.liquidity)}"></div>`).join("");
@@ -120,4 +126,7 @@ els.alertList.addEventListener("click", (event) => {
   renderAlerts();
 });
 els.clearAlerts.addEventListener("click", () => { localStorage.removeItem(ALERTS_KEY); renderAlerts(); });
+$("alertPrice").addEventListener("input", updateMarketCapEstimate);
+$("alertSupply").addEventListener("input", updateMarketCapEstimate);
+updateMarketCapEstimate();
 renderAlerts();

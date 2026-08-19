@@ -1483,6 +1483,24 @@ dialog {
   gap: 10px;
 }
 
+.onchainAlertEstimate {
+  display: grid;
+  align-content: end;
+  gap: 7px;
+  padding-bottom: 8px;
+}
+
+.onchainAlertEstimate span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.onchainAlertEstimate strong {
+  color: #ffd166;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
 .onchainAlertActions .onchainScanBtn {
   width: auto;
   margin: 0;
