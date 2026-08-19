@@ -1,5 +1,45 @@
 const $ = (id) => document.getElementById(id);
-const els = { symbol: $("symbolInput"), scan: $("scanBtn"), title: $("resultTitle"), status: $("resultStatus"), state: $("poolState"), metrics: $("metrics"), meta: $("chartMeta"), chart: $("liqChart"), labels: $("chartLabels") };
+const els = { symbol: $("symbolInput"), scan: $("scanBtn"), title: $("resultTitle"), status: $("resultStatus"), state: $("poolState"), metrics: $("metrics"), meta: $("chartMeta"), chart: $("liqChart"), labels: $("chartLabels"), alertForm: $("alertForm"), alertList: $("alertList"), clearAlerts: $("clearAlertsBtn") };
+const ALERTS_KEY = "market-monitor-onchain-alerts";
+
+function escapeHtml(value) {
+  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function readAlerts() {
+  try { return JSON.parse(localStorage.getItem(ALERTS_KEY) || "[]"); } catch { return []; }
+}
+
+function renderAlerts() {
+  const alerts = readAlerts();
+  els.alertList.innerHTML = alerts.length ? alerts.map((item, index) => `<article class="onchainAlertItem">
+    <div><strong>${escapeHtml(item.address.slice(0, 8))}…${escapeHtml(item.address.slice(-6))}</strong><span>${escapeHtml(item.note || "未填写备注")}</span></div>
+    <div><b>${escapeHtml(item.price)}</b><span>${item.mode === "below" ? "跌破" : item.mode === "above" ? "突破" : "进入区间"} · ±${escapeHtml(item.tolerance)}%</span></div>
+    <div><span>频率</span><b>${Number(item.interval) / 60} 分钟</b></div>
+    <button type="button" class="miniBtn" data-remove-alert="${index}">删除</button>
+  </article>`).join("") : '<div class="emptySignal">还没有配置价格警报</div>';
+}
+
+function saveAlert(event) {
+  event.preventDefault();
+  const form = new FormData(els.alertForm);
+  const item = {
+    address: String(form.get("address") || "").trim(),
+    price: String(form.get("price") || "").trim(),
+    mode: String(form.get("mode") || "enter"),
+    tolerance: String(form.get("tolerance") || "1"),
+    interval: String(form.get("interval") || "300"),
+    note: String(form.get("note") || "").trim(),
+    createdAt: Date.now(),
+  };
+  const alerts = readAlerts();
+  alerts.unshift(item);
+  localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts.slice(0, 50)));
+  els.alertForm.reset();
+  $("alertTolerance").value = "1";
+  $("alertInterval").value = "300";
+  renderAlerts();
+}
 
 function fmt(value) {
   const n = Number(value);
@@ -64,3 +104,14 @@ async function scan() {
 
 els.scan.addEventListener("click", scan);
 els.symbol.addEventListener("keydown", (event) => { if (event.key === "Enter") scan(); });
+els.alertForm.addEventListener("submit", saveAlert);
+els.alertList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-alert]");
+  if (!button) return;
+  const alerts = readAlerts();
+  alerts.splice(Number(button.dataset.removeAlert), 1);
+  localStorage.setItem(ALERTS_KEY, JSON.stringify(alerts));
+  renderAlerts();
+});
+els.clearAlerts.addEventListener("click", () => { localStorage.removeItem(ALERTS_KEY); renderAlerts(); });
+renderAlerts();
