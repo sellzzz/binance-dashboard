@@ -15,7 +15,7 @@ function renderAlerts() {
   els.alertList.innerHTML = alerts.length ? alerts.map((item, index) => `<article class="onchainAlertItem">
     <div><strong>${escapeHtml(item.address.slice(0, 8))}…${escapeHtml(item.address.slice(-6))}</strong><span>${escapeHtml(item.note || "未填写备注")}</span></div>
     <div><b>${escapeHtml(item.price)}</b><span>${item.mode === "below" ? "跌破" : item.mode === "above" ? "突破" : "进入区间"} · ±${escapeHtml(item.tolerance)}%</span></div>
-    <div><span>频率</span><b>${Number(item.interval) / 60} 分钟</b></div>
+    <div><span>市值 / 频率</span><b>${item.marketCap ? `$${Number(item.marketCap).toLocaleString("en-US")}` : "-"}</b><span>${Number(item.interval) / 60} 分钟</span></div>
     <button type="button" class="miniBtn" data-remove-alert="${index}">删除</button>
   </article>`).join("") : '<div class="emptySignal">还没有配置价格警报</div>';
 }
@@ -29,6 +29,7 @@ function saveAlert(event) {
     mode: String(form.get("mode") || "enter"),
     tolerance: String(form.get("tolerance") || "1"),
     interval: String(form.get("interval") || "300"),
+    marketCap: String(form.get("marketCap") || "").trim(),
     note: String(form.get("note") || "").trim(),
     createdAt: Date.now(),
   };
@@ -69,10 +70,14 @@ function render(data) {
   els.status.textContent = `${data.baseSymbol}/${data.quoteSymbol} · ${data.pool}`;
   els.metrics.innerHTML = [
     ["当前价格", `${fmt(data.currentPrice)} ${data.quoteSymbol}`],
+    ["市值", fmtUsd(data.marketCapUsd)],
     ["池子流动性", fmtUsd(data.liquidityUsd)],
     ["当前 Tick", data.currentTick],
     ["Tick 间距", data.tickSpacing],
   ].map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join("");
+  if (data.query && /^0x[a-f0-9]{40}$/i.test(data.query)) $("alertAddress").value = data.query;
+  if (!$("alertPrice").value && Number.isFinite(Number(data.currentPrice))) $("alertPrice").value = data.currentPrice;
+  if (Number.isFinite(Number(data.marketCapUsd))) $("alertMarketCap").value = Math.round(Number(data.marketCapUsd));
   els.meta.textContent = `${data.baseSymbol} / ${data.quoteSymbol} · ${data.bins.length} 个区间`;
   const max = Math.max(...data.bins.map((bin) => Number(bin.liquidity) || 0), 1);
   els.chart.innerHTML = data.bins.map((bin) => `<div class="onchainBar ${bin.active ? "active" : ""}" style="height:${Math.max(5, Number(bin.liquidity) / max * 100)}%" title="${fmt(bin.price)} · ${fmt(bin.liquidity)}"></div>`).join("");

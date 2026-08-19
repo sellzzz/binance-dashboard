@@ -911,7 +911,7 @@ async function getBscPancakeV3PoolByAddress(address) {
     .filter((pair) => Number.isFinite(Number(pair.liquidity?.usd)))
     .sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0))[0];
   const data = best
-    ? { tokenAddress: normalized, pairAddress: best.pairAddress, dexId: best.dexId, url: best.url, liquidityUsd: Number(best.liquidity?.usd) || null, baseSymbol: best.baseToken?.symbol, quoteSymbol: best.quoteToken?.symbol }
+    ? { tokenAddress: normalized, pairAddress: best.pairAddress, dexId: best.dexId, url: best.url, liquidityUsd: Number(best.liquidity?.usd) || null, marketCapUsd: Number(best.marketCap || best.fdv) || null, baseSymbol: best.baseToken?.symbol, quoteSymbol: best.quoteToken?.symbol }
     : null;
   pancakeV3PoolCache.set(cacheKey, { at: Date.now(), data });
   return data;
@@ -1049,6 +1049,7 @@ async function buildPancakeLiquidityRange(symbol) {
     quoteSymbol,
     currentPrice: baseIsToken0 ? currentPrice0 : 1 / currentPrice0,
     liquidityUsd: poolInfo.liquidityUsd,
+    marketCapUsd: poolInfo.marketCapUsd || null,
     bins: bins.sort((a, b) => a.price - b.price),
   };
   pancakeRangeCache.set(symbol, { at: Date.now(), data });
