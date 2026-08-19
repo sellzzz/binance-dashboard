@@ -18,6 +18,7 @@ const REVERSAL_CACHE_MS = 5 * 60_000;
 const REVERSAL_HISTORY_FILE = join(process.cwd(), "data", "reversal-signals.json");
 const REVERSAL_HISTORY_LIMIT = 500;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
+const TREASURY_CURVE_CSV = "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
 const CONCURRENCY = 12;
 
@@ -34,6 +35,7 @@ let reversalHistory = null;
 let reversalHistoryWrite = Promise.resolve();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
+let treasuryCurveCache = { at: 0, data: null };
 
 const POOL_IFACE = new Interface([
   "function slot0() view returns (uint160 sqrtPriceX96,int24 tick,uint16 observationIndex,uint16 observationCardinality,uint16 observationCardinalityNext,uint32 feeProtocol,bool unlocked)",
@@ -521,6 +523,52 @@ function unavailableMacro(definition, status = "unavailable") {
   return { ...definition, status, value: null, previousClose: null, change: null, changePct: null, asOf: null };
 }
 
+function parseCsvLine(line) {
+  return line.match(/(?:[^,\"]|\"[^\"]*\")+/g)?.map((value) => value.trim().replace(/^\"|\"$/g, "")) || [];
+}
+
+async function getTreasuryCurve() {
+  if (treasuryCurveCache.data && Date.now() - treasuryCurveCache.at < MACRO_CACHE_MS) return treasuryCurveCache.data;
+  const year = new Date().getUTCFullYear();
+  const url = `${TREASURY_CURVE_CSV}/${year}/all?field_tdr_date_value=${year}&type=daily_treasury_yield_curve&page&_format=csv`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Treasury ${response.status}`);
+  const text = await response.text();
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) throw new Error("Treasury curve empty");
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const rows = lines.slice(1).map((line) => {
+    const values = parseCsvLine(line);
+    return Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
+  }).filter((row) => row.date);
+  const latest = rows.at(-1);
+  const previous = rows.at(-2) || null;
+  if (!latest) throw new Error("Treasury curve has no dated rows");
+  const data = { latest, previous, date: latest.date };
+  treasuryCurveCache = { at: Date.now(), data };
+  return data;
+}
+
+async function getTreasuryMacro(definition) {
+  try {
+    const curve = await getTreasuryCurve();
+    const read = (row, field) => {
+      const value = Number(row?.[field.toLowerCase()]);
+      return Number.isFinite(value) ? value : null;
+    };
+    const calculate = (row) => definition.treasurySpread
+      ? read(row, definition.treasurySpread[0]) - read(row, definition.treasurySpread[1])
+      : read(row, definition.treasuryField);
+    const value = calculate(curve.latest);
+    const previousClose = curve.previous ? calculate(curve.previous) : null;
+    if (!Number.isFinite(value)) return unavailableMacro(definition);
+    return { ...definition, status: "live", value, previousClose, change: Number.isFinite(previousClose) ? value - previousClose : null, changePct: null, asOf: curve.date };
+  } catch (error) {
+    console.warn(`Treasury curve: ${error.message}`);
+    return unavailableMacro(definition);
+  }
+}
+
 async function getFredMacro(definition) {
   if (!process.env.FRED_API_KEY) return unavailableMacro(definition);
   const url = new URL(FRED_API);
@@ -585,10 +633,14 @@ async function getFedWatchMacros() {
 }
 
 const macroDefinitions = [
-  { id: "2y", label: "2Y 美债收益率", purpose: "观察短期利率与经济预期", source: "Yahoo Finance ^2YR", yahoo: "^2YR", frequency: "5 分钟" },
-  { id: "5y", label: "5Y 美债收益率", purpose: "观察中短端利率变化", source: "Yahoo Finance ^5YR", yahoo: "^5YR", frequency: "5 分钟" },
-  { id: "10y", label: "10Y 美债收益率", purpose: "观察市场核心无风险利率", source: "Yahoo Finance ^TNX", yahoo: "^TNX", scale: 0.1, frequency: "5 分钟" },
-  { id: "30y", label: "30Y 美债收益率", purpose: "观察长期通胀与财政预期", source: "Yahoo Finance ^TYX", yahoo: "^TYX", scale: 0.1, frequency: "5 分钟" },
+  { id: "6m", label: "6M 美国国债收益率", purpose: "观察短期资金成本和降息预期", source: "美国财政部 Daily Treasury", treasuryField: "6 Mo", fredSeries: "DGS6MO", unit: "percent", frequency: "每日" },
+  { id: "1y", label: "1Y 美国国债收益率", purpose: "观察未来一年政策利率预期", source: "美国财政部 Daily Treasury", treasuryField: "1 Yr", fredSeries: "DGS1", unit: "percent", frequency: "每日" },
+  { id: "2y", label: "2Y 美国国债收益率", purpose: "观察短期利率与经济预期", source: "美国财政部 Daily Treasury", treasuryField: "2 Yr", fredSeries: "DGS2", unit: "percent", frequency: "每日" },
+  { id: "5y", label: "5Y 美国国债收益率", purpose: "观察中期利率变化", source: "美国财政部 Daily Treasury", treasuryField: "5 Yr", fredSeries: "DGS5", unit: "percent", frequency: "每日" },
+  { id: "10y", label: "10Y 美国国债收益率", purpose: "观察市场核心无风险利率", source: "美国财政部 Daily Treasury", treasuryField: "10 Yr", fredSeries: "DGS10", unit: "percent", frequency: "每日" },
+  { id: "30y", label: "30Y 美国国债收益率", purpose: "观察长期通胀与财政预期", source: "美国财政部 Daily Treasury", treasuryField: "30 Yr", fredSeries: "DGS30", unit: "percent", frequency: "每日" },
+  { id: "2s10s", label: "2s10s 曲线利差", purpose: "观察短长端利率曲线是否倒挂或变陡", source: "美国财政部 Daily Treasury", treasurySpread: ["10 Yr", "2 Yr"], unit: "percent", frequency: "每日" },
+  { id: "5s30s", label: "5s30s 曲线利差", purpose: "观察中长期期限溢价和财政压力", source: "美国财政部 Daily Treasury", treasurySpread: ["30 Yr", "5 Yr"], unit: "percent", frequency: "每日" },
   { id: "gold", label: "黄金", purpose: "避险、通胀和美元压力参考", source: "Yahoo Finance GC=F", yahoo: "GC=F", frequency: "5 分钟" },
   { id: "silver", label: "白银", purpose: "贵金属需求和工业需求参考", source: "Yahoo Finance SI=F", yahoo: "SI=F", frequency: "5 分钟" },
   { id: "wti", label: "WTI 原油", purpose: "美国原油价格和通胀压力参考", source: "Yahoo Finance CL=F", yahoo: "CL=F", frequency: "5 分钟" },
@@ -597,9 +649,9 @@ const macroDefinitions = [
   { id: "usdcny", label: "USD/CNY", purpose: "美元兑人民币汇率", source: "Yahoo Finance CNY=X", yahoo: "CNY=X", frequency: "5 分钟" },
   { id: "eurusd", label: "EUR/USD", purpose: "欧元兑美元，观察美元和欧洲市场变化", source: "Yahoo Finance EURUSD=X", yahoo: "EURUSD=X", frequency: "5 分钟" },
   { id: "usdjpy", label: "USD/JPY", purpose: "美元兑日元，观察避险和套息交易", source: "Yahoo Finance JPY=X", yahoo: "JPY=X", frequency: "5 分钟" },
-  { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", fredSeries: "DFII10", frequency: "每日" },
-  { id: "be5y", label: "5Y BE", purpose: "未来 5 年的市场通胀预期", source: "FRED T5YIE", fredSeries: "T5YIE", frequency: "每日" },
-  { id: "be10y", label: "10Y BE", purpose: "未来 10 年的市场通胀预期", source: "FRED T10YIE", fredSeries: "T10YIE", frequency: "每日" },
+  { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", fredSeries: "DFII10", unit: "percent", frequency: "每日" },
+  { id: "be5y", label: "5Y BE", purpose: "未来 5 年的市场通胀预期", source: "FRED T5YIE", fredSeries: "T5YIE", unit: "percent", frequency: "每日" },
+  { id: "be10y", label: "10Y BE", purpose: "未来 10 年的市场通胀预期", source: "FRED T10YIE", fredSeries: "T10YIE", unit: "percent", frequency: "每日" },
   { id: "fedMeeting", label: "Fed Futures 会议日期", purpose: "下一次美联储会议时间", source: "CME FedWatch API", fedField: "meeting", frequency: "工作日更新" },
   { id: "fedRange", label: "Fed Futures 目标利率区间", purpose: "市场对会议后利率区间的预期", source: "CME FedWatch API", fedField: "range", frequency: "工作日更新" },
   { id: "fedProbability", label: "Fed Futures 概率分布", purpose: "不同利率区间的市场定价概率", source: "CME FedWatch API", fedField: "probability", frequency: "工作日更新" },
@@ -617,6 +669,7 @@ let macroOverviewCache = { at: 0, data: null };
 async function getMacroOverview() {
   if (macroOverviewCache.data && Date.now() - macroOverviewCache.at < MACRO_CACHE_MS) return macroOverviewCache.data;
   const rows = await mapLimit(macroDefinitions, 6, async (definition) => {
+    if (definition.treasuryField || definition.treasurySpread) return getTreasuryMacro(definition);
     if (definition.fredSeries) return getFredMacro(definition);
     if (definition.fedField) return unavailableMacro(definition);
     if (!definition.yahoo) return unavailableMacro(definition);

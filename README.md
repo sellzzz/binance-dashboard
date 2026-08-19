@@ -86,15 +86,14 @@ http://服务器IP:8787/smallcap.html
 
 ## 宏观指标 API 配置
 
-宏观总览会优先读取官方 FRED 和 CME FedWatch 数据。启动前可在 PowerShell 设置服务端环境变量：
+美国国债收益率曲线默认读取美国财政部公开的 Daily Treasury Par Yield Curve，不需要 FRED Key。FRED 可作为其他宏观序列的可选数据源；CME FedWatch 仍需要有效 OAuth token：
 
 ```powershell
-$env:FRED_API_KEY = "你的 FRED API key"
 $env:CME_FEDWATCH_OAUTH_TOKEN = "你的 CME FedWatch OAuth token"
 npm start
 ```
 
-未配置凭据、接口无订阅、超时或返回空结果时，主页显示“暂无数据”，不会填充模拟值。
+未配置 CME 凭据、接口无订阅、超时或返回空结果时，相关项目显示“暂无数据”，不会填充模拟值。
 - CoinGecko API
 - DexScreener API
 - BSC JSON-RPC

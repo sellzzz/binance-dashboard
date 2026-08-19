@@ -137,15 +137,25 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function formatMacroValue(row) {
+  if (row.value === null || row.value === undefined) return "暂无数据";
+  if (row.unit === "percent" && Number.isFinite(Number(row.value))) return `${Number(row.value).toFixed(3)}%`;
+  return Number.isFinite(Number(row.value)) ? fmtNumber(row.value) : escapeHtml(row.value);
+}
+
+function formatMacroChange(row) {
+  const change = Number(row.change);
+  if (!Number.isFinite(change)) return "暂无数据";
+  if (row.unit === "percent") return `${change >= 0 ? "+" : ""}${(change * 100).toFixed(1)}bp`;
+  return `${change >= 0 ? "+" : ""}${change.toFixed(2)}`;
+}
+
 function renderMacroRows(rows) {
   els.macroRows.innerHTML = rows.map((row) => {
     const live = row.status === "live" && row.value !== null && row.value !== undefined;
     const change = Number(row.change);
-    const numericValue = Number(row.value);
-    const value = live ? (Number.isFinite(numericValue) ? fmtNumber(numericValue) : escapeHtml(row.value)) : "暂无数据";
-    const changeText = Number.isFinite(change) && Number.isFinite(Number(row.changePct))
-      ? `${change >= 0 ? "+" : ""}${change.toFixed(2)} (${Number(row.changePct) >= 0 ? "+" : ""}${Number(row.changePct).toFixed(2)}%)`
-      : "暂无数据";
+    const value = live ? formatMacroValue(row) : "暂无数据";
+    const changeText = Number.isFinite(change) ? formatMacroChange(row) : "暂无数据";
     const valueClass = live ? "macroValue" : "macroPending";
     const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "macroPending";
     return `<tr>
