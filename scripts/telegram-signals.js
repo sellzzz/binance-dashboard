@@ -107,7 +107,7 @@ function buildSmallCapMessage(data) {
   const header = [
     "<b>Low-Cap Position Signals</b>",
     `Time: ${htmlEscape(data.generatedAt ? fmtTime(data.generatedAt) : fmtTime(Date.now()))}`,
-    `MCap <= ${htmlEscape(fmtUsd(data.smallCap?.maxUsd))} | Change >= ${htmlEscape(data.smallCap?.minChangePct ?? "-")}%`,
+    `MCap max ${htmlEscape(fmtUsd(data.smallCap?.maxUsd))} | Change min ${htmlEscape(data.smallCap?.minChangePct ?? "-")}%`,
     `Scanned: ${htmlEscape(data.scanned ?? "-")} | Candidates: ${rows.length}`,
   ].join("\n");
   if (!rows.length) return `${header}\n\nNo low-cap signals reached the filter.`;
@@ -136,12 +136,16 @@ async function sendTelegram(text) {
 }
 
 async function run() {
-  const [signalResponse, smallCapResponse] = await Promise.all([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl)]);
-  const signalData = await signalResponse.json().catch(() => ({}));
-  const smallCapData = await smallCapResponse.json().catch(() => ({}));
-  if (!signalResponse.ok) throw new Error(signalData.error || `Position scan ${signalResponse.status}`);
-  if (!smallCapResponse.ok) throw new Error(smallCapData.error || `Low-cap scan ${smallCapResponse.status}`);
-  await sendTelegram(`${buildMessage(signalData)}\n\n${buildSmallCapMessage(smallCapData)}`);
+  const results = await Promise.allSettled([fetchWithTimeout(scanUrl), fetchWithTimeout(smallCapScanUrl)]);
+  const [signalResult, smallCapResult] = results;
+  const signalData = signalResult.status === "fulfilled" ? await signalResult.value.json().catch(() => ({})) : { error: signalResult.reason?.message };
+  const smallCapData = smallCapResult.status === "fulfilled" ? await smallCapResult.value.json().catch(() => ({})) : { error: smallCapResult.reason?.message };
+  const signalOk = signalResult.status === "fulfilled" && signalResult.value.ok;
+  const smallCapOk = smallCapResult.status === "fulfilled" && smallCapResult.value.ok;
+  const sections = [];
+  sections.push(signalOk ? buildMessage(signalData) : `<b>Position Change Signals</b>\n读取失败: ${htmlEscape(signalData.error || `HTTP ${signalResult.value?.status || "network"}`)}`);
+  sections.push(smallCapOk ? buildSmallCapMessage(smallCapData) : `<b>Low-Cap Position Signals</b>\n读取失败: ${htmlEscape(smallCapData.error || `HTTP ${smallCapResult.value?.status || "network"}`)}`);
+  await sendTelegram(sections.join("\n\n"));
   console.log(`[${new Date().toISOString()}] sent position=${Array.isArray(signalData.alerts) ? signalData.alerts.length : 0}, lowcap=${Array.isArray(smallCapData.smallCaps) ? smallCapData.smallCaps.length : 0}`);
 }
 
