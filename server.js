@@ -49,6 +49,7 @@ const POOL_IFACE = new Interface([
 const ERC20_IFACE = new Interface([
   "function symbol() view returns (string)",
   "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
 ]);
 
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.ALL_PROXY;
@@ -911,7 +912,7 @@ async function getBscPancakeV3PoolByAddress(address) {
     .filter((pair) => Number.isFinite(Number(pair.liquidity?.usd)))
     .sort((a, b) => Number(b.liquidity?.usd || 0) - Number(a.liquidity?.usd || 0))[0];
   const data = best
-    ? { tokenAddress: normalized, pairAddress: best.pairAddress, dexId: best.dexId, url: best.url, liquidityUsd: Number(best.liquidity?.usd) || null, marketCapUsd: Number(best.marketCap || best.fdv) || null, baseSymbol: best.baseToken?.symbol, quoteSymbol: best.quoteToken?.symbol }
+    ? { tokenAddress: normalized, pairAddress: best.pairAddress, dexId: best.dexId, url: best.url, liquidityUsd: Number(best.liquidity?.usd) || null, baseSymbol: best.baseToken?.symbol, quoteSymbol: best.quoteToken?.symbol }
     : null;
   pancakeV3PoolCache.set(cacheKey, { at: Date.now(), data });
   return data;
@@ -998,6 +999,10 @@ async function buildPancakeLiquidityRange(symbol) {
   const baseIsToken0 = token0.toLowerCase() === baseAddress;
   const baseSymbol = baseIsToken0 ? symbol0 : symbol1;
   const quoteSymbol = baseIsToken0 ? symbol1 : symbol0;
+  const baseDecimals = baseIsToken0 ? decimals0 : decimals1;
+  const totalSupplyResult = await contractCall(poolInfo.tokenAddress, ERC20_IFACE, "totalSupply").catch(() => [null]);
+  const totalSupplyRaw = totalSupplyResult[0] === null ? null : BigInt(totalSupplyResult[0].toString());
+  const totalSupply = totalSupplyRaw === null ? null : Number(totalSupplyRaw) / 10 ** baseDecimals;
 
   const binSize = tickSpacing * 24;
   const halfBins = 24;
@@ -1035,6 +1040,8 @@ async function buildPancakeLiquidityRange(symbol) {
   }
 
   const currentPrice0 = tickToPrice(currentTick, decimals0, decimals1);
+  const currentPrice = baseIsToken0 ? currentPrice0 : 1 / currentPrice0;
+  const stableQuotes = new Set(["USDT", "USDC", "BUSD", "DAI", "FDUSD"]);
   const data = {
     symbol: isAddress ? `${baseSymbol}/${quoteSymbol}` : symbol,
     query: symbol,
@@ -1047,9 +1054,10 @@ async function buildPancakeLiquidityRange(symbol) {
     tickSpacing,
     baseSymbol,
     quoteSymbol,
-    currentPrice: baseIsToken0 ? currentPrice0 : 1 / currentPrice0,
+    currentPrice,
+    totalSupply,
+    marketCapUsd: stableQuotes.has(String(quoteSymbol).toUpperCase()) && Number.isFinite(totalSupply) ? totalSupply * currentPrice : null,
     liquidityUsd: poolInfo.liquidityUsd,
-    marketCapUsd: poolInfo.marketCapUsd || null,
     bins: bins.sort((a, b) => a.price - b.price),
   };
   pancakeRangeCache.set(symbol, { at: Date.now(), data });

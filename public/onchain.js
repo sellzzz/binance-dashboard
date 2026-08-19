@@ -70,7 +70,8 @@ function render(data) {
   els.status.textContent = `${data.baseSymbol}/${data.quoteSymbol} · ${data.pool}`;
   els.metrics.innerHTML = [
     ["当前价格", `${fmt(data.currentPrice)} ${data.quoteSymbol}`],
-    ["市值", fmtUsd(data.marketCapUsd)],
+    ["总供应量", data.totalSupply ? fmt(data.totalSupply) : "-"],
+    ["市值（总量×价格）", fmtUsd(data.marketCapUsd)],
     ["池子流动性", fmtUsd(data.liquidityUsd)],
     ["当前 Tick", data.currentTick],
     ["Tick 间距", data.tickSpacing],
