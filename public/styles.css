@@ -886,65 +886,11 @@ dialog::backdrop {
 
 @media (min-width: 1000px) {
   .reversalShell {
-    display: grid;
-    grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.75fr);
-    gap: 14px;
-    align-items: start;
-  }
-
-  .reversalShell > .siteBar,
-  .reversalShell > .reversalToolbar,
-  .reversalShell > .reversalControls,
-  .reversalShell > .reversalStats,
-  .reversalShell > .reversalSignalPanel,
-  .reversalShell > .reversalWatchPanel:not(.reversalHistoryPanel) {
-    grid-column: 2;
-  }
-
-  .reversalShell > .siteBar { grid-row: 1; }
-  .reversalShell > .reversalToolbar { grid-row: 2; }
-  .reversalShell > .reversalControls { grid-row: 3; }
-  .reversalShell > .reversalStats { grid-row: 4; }
-  .reversalShell > .reversalSignalPanel { grid-row: 5; }
-  .reversalShell > .reversalWatchPanel:not(.reversalHistoryPanel) { grid-row: 6; }
-
-  .reversalHistoryPanel {
-    grid-column: 1;
-    grid-row: 1 / span 6;
-    position: sticky;
-    top: 14px;
-    max-height: calc(100vh - 28px);
-    overflow: auto;
+    display: block;
   }
 
   .reversalHistoryPanel .reversalTable {
-    min-width: 0;
-    width: 100%;
-    table-layout: fixed;
-  }
-
-  .reversalHistoryPanel th,
-  .reversalHistoryPanel td {
-    padding: 10px 8px;
-    word-break: break-word;
-  }
-
-  .reversalHistoryPanel th:nth-child(1),
-  .reversalHistoryPanel td:nth-child(1) { width: 24%; }
-  .reversalHistoryPanel th:nth-child(2),
-  .reversalHistoryPanel td:nth-child(2) { width: 22%; }
-  .reversalHistoryPanel th:nth-child(3),
-  .reversalHistoryPanel td:nth-child(3) { width: 18%; }
-  .reversalHistoryPanel th:nth-child(4),
-  .reversalHistoryPanel td:nth-child(4) { width: 20%; }
-  .reversalHistoryPanel th:nth-child(5),
-  .reversalHistoryPanel td:nth-child(5) { width: 16%; }
-
-  .reversalHistoryPanel small {
-    display: block;
-    margin-top: 4px;
-    color: var(--muted);
-    font-size: 10px;
+    min-width: 860px;
   }
 }
 
