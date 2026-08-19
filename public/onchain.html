@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>链上监控 · Market Monitor</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell onchainShell">
+      <header class="siteBar">
+        <a class="brand" href="/" aria-label="返回数据监控主站">
+          <span class="brandMark">M</span>
+          <span class="brandCopy"><strong>Market Monitor</strong><small>Signal intelligence</small></span>
+        </a>
+        <nav class="siteNav" aria-label="主导航">
+          <a href="/">总览</a><a href="/position.html">仓位信号</a><a href="/smallcap.html">低市值</a><a href="/reversal.html">关键区域</a><a class="active" href="/onchain.html">链上监控</a>
+        </nav>
+      </header>
+
+      <section class="toolbar onchainToolbar">
+        <div>
+          <div class="pageEyebrow">ON-CHAIN MONITOR / BSC</div>
+          <h1>链上监控</h1>
+          <p>独立查看 BSC · PancakeSwap 的池子、流动性区间和价格位置。</p>
+        </div>
+        <div class="actions"><a class="linkBtn" href="/">返回总览</a></div>
+      </section>
+
+      <section class="onchainLayout">
+        <aside class="panel onchainControlPanel">
+          <div class="panelHead"><div><h2>链上标的</h2><p>输入币安合约符号，查询对应 BSC 池子。</p></div><span class="chainBadge">BSC</span></div>
+          <label class="onchainInput">合约标的<input id="symbolInput" value="PENGUUSDT" placeholder="例如 SNXXUSDT" /></label>
+          <button id="scanBtn" class="onchainScanBtn" type="button">扫描链上池子</button>
+          <div class="onchainChecklist"><span>数据范围</span><b>PancakeSwap V3</b><span>网络</span><b>BNB Smart Chain</b><span>用途</span><b>人工判断，不自动交易</b></div>
+        </aside>
+
+        <section class="panel onchainResultPanel">
+          <div class="panelHead"><div><h2 id="resultTitle">等待扫描</h2><p id="resultStatus">输入标的后开始读取池子状态。</p></div><span id="poolState" class="macroSource">未读取</span></div>
+          <div id="metrics" class="onchainMetrics"></div>
+          <div class="onchainChartHead"><strong>流动性区间</strong><span id="chartMeta">-</span></div>
+          <div id="liqChart" class="onchainChart"></div>
+          <div id="chartLabels" class="onchainChartLabels"></div>
+        </section>
+      </section>
+    </main>
+    <script src="/onchain.js" type="module"></script>
+  </body>
+</html>

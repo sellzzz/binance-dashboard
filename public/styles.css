@@ -1354,6 +1354,152 @@ dialog {
   color: #f5f8ff;
 }
 
+.onchainLayout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.8fr);
+  gap: 14px;
+}
+
+.onchainControlPanel,
+.onchainResultPanel {
+  min-width: 0;
+}
+
+.chainBadge {
+  padding: 5px 8px;
+  border: 1px solid #537b3e;
+  border-radius: 5px;
+  background: #20351e;
+  color: #a6dd87;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.onchainInput {
+  display: grid;
+  gap: 8px;
+  margin: 18px 16px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.onchainInput input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  outline: 0;
+  background: #0d151f;
+  color: var(--text);
+}
+
+.onchainInput input:focus {
+  border-color: #4d7eb8;
+  box-shadow: 0 0 0 3px rgba(77, 126, 184, 0.14);
+}
+
+.onchainScanBtn {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+  padding: 11px 14px;
+  border: 1px solid #3970b4;
+  border-radius: 6px;
+  background: #1b4a80;
+  color: #eef6ff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.onchainScanBtn:hover { background: #24639f; }
+.onchainScanBtn:disabled { cursor: wait; opacity: 0.6; }
+
+.onchainChecklist {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 12px;
+  margin: 20px 16px 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.onchainChecklist b { color: var(--text); font-size: 12px; }
+
+.onchainMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+}
+
+.onchainMetrics div {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0d151f;
+}
+
+.onchainMetrics span { color: var(--muted); font-size: 11px; }
+.onchainMetrics strong { color: #e7f0ff; font-size: 16px; }
+
+.onchainChartHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.onchainChartHead strong { color: var(--text); }
+
+.onchainChart {
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  height: 220px;
+  margin: 16px 16px 0;
+  padding: 12px 10px 0;
+  border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(to top, transparent 0, transparent 54px, rgba(103, 130, 161, 0.12) 55px);
+}
+
+.onchainBar {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 3px 3px 0 0;
+  background: #2d6b83;
+  opacity: 0.8;
+}
+
+.onchainBar.active { background: #e36a9a; opacity: 1; }
+
+.onchainChartLabels {
+  position: relative;
+  height: 28px;
+  margin: 0 16px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.onchainChartLabels span {
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .onchainLayout,
+  .onchainMetrics { grid-template-columns: 1fr; }
+  .onchainChart { height: 180px; }
+}
+
 .panelHead h2 {
   font-weight: 750;
 }
