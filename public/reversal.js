@@ -9,6 +9,8 @@ const els = {
   status: $("status"),
   signalList: $("signalList"),
   watchBody: $("watchBody"),
+  historyBody: $("historyBody"),
+  historyStatus: $("historyStatus"),
 };
 
 let controller = null;
@@ -35,9 +37,47 @@ function fmtDate(value) {
   return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(new Date(value));
 }
 
+function fmtDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+function renderHistory(records) {
+  if (!records.length) {
+    els.historyBody.innerHTML = '<tr><td class="empty" colspan="7">暂时没有已记录信号</td></tr>';
+    return;
+  }
+  els.historyBody.innerHTML = records.map((record) => {
+    const support = record.type === "support-touch";
+    const approaching = record.status === "approaching";
+    return `<tr>
+      <td>${fmtDateTime(record.recordedAt)}</td>
+      <td class="symbol">${escapeHtml(record.symbol)}</td>
+      <td>${escapeHtml(record.market)}</td>
+      <td class="positive">${approaching ? "接近预警" : "第二次触及"}</td>
+      <td>${support ? "支撑 · 潜在反弹" : "阻力 · 潜在回落"}</td>
+      <td>${fmtPrice(record.current?.price)}</td>
+      <td>${fmtPrice(record.zoneLow)} - ${fmtPrice(record.zoneHigh)}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function loadHistory() {
+  try {
+    const response = await fetch("/api/reversal/history?limit=100", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "读取记录失败");
+    renderHistory(data.records || []);
+    els.historyStatus.textContent = `${data.records.length} 条记录`;
+  } catch (error) {
+    els.historyStatus.textContent = error.message;
+    renderHistory([]);
+  }
+}
+
 function renderSignals(signals) {
   if (!signals.length) {
-    els.signalList.innerHTML = '<div class="emptySignal">当前没有标的首次触及关键区域</div>';
+    els.signalList.innerHTML = '<div class="emptySignal">当前没有新的关键区域信号</div>';
     return;
   }
   els.signalList.innerHTML = signals.map((signal) => {
@@ -68,7 +108,7 @@ function renderWatch(rows) {
     return `<tr>
       <td class="symbol">${escapeHtml(row.symbol)}</td>
       <td>${escapeHtml(row.market)}</td>
-      <td class="${firstTouch ? "positive" : ""}">${firstTouch ? "首次触及" : row.status === "error" ? "读取失败" : "观察中"}</td>
+      <td class="${firstTouch ? "positive" : ""}">${firstTouch ? (row.status === "approaching" ? "接近预警" : "第二次触及") : row.status === "error" ? "读取失败" : "观察中"}</td>
       <td>${fmtPrice(row.current?.price)}</td>
       <td>${zone ? `${fmtPrice(zone.zoneLow)} - ${fmtPrice(zone.zoneHigh)}` : "-"}</td>
       <td>${zone ? `${zone.ageBars} 根` : "-"}</td>
@@ -93,6 +133,7 @@ async function scan() {
     els.status.textContent = `${data.selectionMode === "24h-quote-volume" ? "24h成交额自动选取" : "手动观察池"} / 1D / ${data.minimumAgeText} / second revisit + ${data.proximityPct}% proximity warning`;
     renderSignals(data.signals);
     renderWatch(data.rows);
+    await loadHistory();
   } catch (error) {
     if (error.name === "AbortError") return;
     els.status.textContent = error.message;

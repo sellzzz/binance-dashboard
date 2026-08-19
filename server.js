@@ -1,5 +1,5 @@
 import http from "node:http";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 import { Interface } from "ethers";
@@ -15,6 +15,8 @@ const MACRO_CACHE_MS = 60_000;
 const FETCH_TIMEOUT_MS = 15_000;
 const MAX_SCAN_CACHE = 60;
 const REVERSAL_CACHE_MS = 5 * 60_000;
+const REVERSAL_HISTORY_FILE = join(process.cwd(), "data", "reversal-signals.json");
+const REVERSAL_HISTORY_LIMIT = 500;
 const FRED_API = "https://api.stlouisfed.org/fred/series/observations";
 const CME_FEDWATCH_API = process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1";
 const CONCURRENCY = 12;
@@ -28,6 +30,8 @@ let pancakeV3PoolCache = new Map();
 let scanCache = new Map();
 let pancakeRangeCache = new Map();
 let reversalCache = new Map();
+let reversalHistory = null;
+let reversalHistoryWrite = Promise.resolve();
 let vixCache = { at: 0, data: null };
 let dxyCache = { at: 0, data: null };
 
@@ -168,6 +172,7 @@ const reversalPresets = new Map([
   ["SPYUSDT", { symbol: "SPYUSDT", name: "S&P 500 ETF", market: "美股合约", source: "binance", sourceSymbol: "SPYUSDT" }],
   ["QQQUSDT", { symbol: "QQQUSDT", name: "Nasdaq 100 ETF", market: "美股合约", source: "binance", sourceSymbol: "QQQUSDT" }],
   ["TQQQUSDT", { symbol: "TQQQUSDT", name: "Nasdaq 3x ETF", market: "美股合约", source: "binance", sourceSymbol: "TQQQUSDT" }],
+  ["SNXXUSDT", { symbol: "SNXXUSDT", name: "SNXX", market: "币安合约", source: "binance", sourceSymbol: "SNXXUSDT" }],
   ["BTCUSDT", { symbol: "BTCUSDT", name: "Bitcoin", market: "加密资产", source: "binance", sourceSymbol: "BTCUSDT" }],
   ["ETHUSDT", { symbol: "ETHUSDT", name: "Ethereum", market: "加密资产", source: "binance", sourceSymbol: "ETHUSDT" }],
   ["BNBUSDT", { symbol: "BNBUSDT", name: "BNB", market: "加密资产", source: "binance", sourceSymbol: "BNBUSDT" }],
@@ -230,7 +235,7 @@ async function getTopReversalFutures(limit = 30) {
 }
 
 async function getDefaultReversalAssets() {
-  const fixedSymbols = ["1810.HK", "0700.HK", "9988.HK", "3690.HK", "9618.HK", "9999.HK", "2318.HK", "0941.HK", "0388.HK", "0005.HK", "XAUUSD", "XAGUSD", "AAPLUSDT", "AMZNUSDT", "TSLAUSDT", "NVDAUSDT", "MSFTUSDT", "METAUSDT", "GOOGLUSDT", "MSTRUSDT", "COINUSDT", "HOODUSDT", "PLTRUSDT", "CRCLUSDT", "AMDUSDT", "AVGOUSDT", "QCOMUSDT", "INTCUSDT", "ORCLUSDT", "NFLXUSDT", "DISUSDT", "WMTUSDT", "COSTUSDT", "LLYUSDT", "CVXUSDT", "BABAUSDT", "SPYUSDT", "QQQUSDT", "TQQQUSDT"];
+  const fixedSymbols = ["1810.HK", "0700.HK", "9988.HK", "3690.HK", "9618.HK", "9999.HK", "2318.HK", "0941.HK", "0388.HK", "0005.HK", "XAUUSD", "XAGUSD", "AAPLUSDT", "AMZNUSDT", "TSLAUSDT", "NVDAUSDT", "MSFTUSDT", "METAUSDT", "GOOGLUSDT", "MSTRUSDT", "COINUSDT", "HOODUSDT", "PLTRUSDT", "CRCLUSDT", "AMDUSDT", "AVGOUSDT", "QCOMUSDT", "INTCUSDT", "ORCLUSDT", "NFLXUSDT", "DISUSDT", "WMTUSDT", "COSTUSDT", "LLYUSDT", "CVXUSDT", "BABAUSDT", "SPYUSDT", "QQQUSDT", "TQQQUSDT", "SNXXUSDT"];
   const fixed = fixedSymbols.map(resolveReversalAsset).filter(Boolean);
   try {
     return [...fixed, ...(await getTopReversalFutures(20))].slice(0, 60);
@@ -355,6 +360,55 @@ function buildReversalSignal(asset, candles) {
   };
 }
 
+async function loadReversalHistory() {
+  if (reversalHistory) return reversalHistory;
+  try {
+    const raw = await readFile(REVERSAL_HISTORY_FILE, "utf8");
+    const parsed = JSON.parse(raw);
+    reversalHistory = Array.isArray(parsed) ? parsed.slice(0, REVERSAL_HISTORY_LIMIT) : [];
+  } catch {
+    reversalHistory = [];
+  }
+  return reversalHistory;
+}
+
+function reversalHistoryKey(signal) {
+  const state = signal.isSecondTouch ? "second-touch" : "approaching";
+  return [signal.symbol, signal.type, state, signal.originTime, signal.touchTime].join(":");
+}
+
+async function recordReversalSignals(signals) {
+  if (!signals.length) return loadReversalHistory();
+  const history = await loadReversalHistory();
+  const known = new Set(history.map(reversalHistoryKey));
+  const additions = signals
+    .map((signal) => ({
+      ...signal,
+      recordKey: reversalHistoryKey(signal),
+      recordedAt: new Date().toISOString(),
+      status: signal.isSecondTouch ? "second-touch" : "approaching",
+      zones: undefined,
+      signals: undefined,
+    }))
+    .filter((signal) => !known.has(signal.recordKey));
+  if (!additions.length) return history;
+  history.unshift(...additions);
+  reversalHistory = history.slice(0, REVERSAL_HISTORY_LIMIT);
+  reversalHistoryWrite = reversalHistoryWrite.then(async () => {
+    await mkdir(join(process.cwd(), "data"), { recursive: true });
+    await writeFile(REVERSAL_HISTORY_FILE, JSON.stringify(reversalHistory, null, 2), "utf8");
+  });
+  await reversalHistoryWrite;
+  return reversalHistory;
+}
+
+async function handleReversalHistory(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const limit = parseInteger(url.searchParams.get("limit"), 100, 1, 500);
+  const history = await loadReversalHistory();
+  json(res, 200, { generatedAt: new Date().toISOString(), records: history.slice(0, limit) });
+}
+
 async function handleReversalScan(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const symbols = url.searchParams.get("symbols")?.trim();
@@ -384,6 +438,13 @@ async function handleReversalScan(req, res) {
       rows,
       signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),
     };
+    try {
+      const history = await recordReversalSignals(data.signals);
+      data.historyCount = history.length;
+    } catch (error) {
+      data.historyCount = (await loadReversalHistory()).length;
+      data.historyError = error.message;
+    }
     reversalCache.set(key, { at: Date.now(), data });
     json(res, 200, data);
   } catch (error) {
@@ -1229,6 +1290,8 @@ const server = http.createServer((req, res) => {
     handleHealth(req, res);
   } else if (req.url.startsWith("/api/reversal/scan")) {
     handleReversalScan(req, res);
+  } else if (req.url.startsWith("/api/reversal/history")) {
+    handleReversalHistory(req, res);
   } else if (req.url.startsWith("/api/liquidity-range")) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const symbol = String(url.searchParams.get("symbol") || "").toUpperCase();

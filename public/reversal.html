@@ -49,15 +49,20 @@
 
       <section class="panel reversalSignalPanel">
         <div class="panelHead">
-          <div><h2>首次触及提醒</h2><p id="status">等待扫描</p></div>
+          <div><h2>实时信号提醒</h2><p id="status">等待扫描</p></div>
           <span class="macroSource">人工判断 · 不自动交易</span>
         </div>
         <div id="signalList" class="reversalSignalList"></div>
       </section>
 
       <section class="panel reversalWatchPanel">
-        <div class="panelHead"><div><h2>观察列表</h2><p>没有首次触及时，标的仍保留在观察中。</p></div></div>
+        <div class="panelHead"><div><h2>观察列表</h2><p>没有触发实时信号时，标的仍保留在观察中。</p></div></div>
         <div class="tableWrap"><table class="reversalTable"><thead><tr><th>标的</th><th>市场</th><th>状态</th><th>当前价</th><th>区域</th><th>区域年龄</th><th>错误</th></tr></thead><tbody id="watchBody"></tbody></table></div>
+      </section>
+
+      <section class="panel reversalWatchPanel">
+        <div class="panelHead"><div><h2>信号记录</h2><p>服务器会保存接近预警和第二次触及，避免信号只出现一天后丢失。</p></div><span id="historyStatus" class="macroSource">读取中</span></div>
+        <div class="tableWrap"><table class="reversalTable"><thead><tr><th>记录时间</th><th>标的</th><th>市场</th><th>状态</th><th>方向</th><th>触发价</th><th>关键区域</th></tr></thead><tbody id="historyBody"></tbody></table></div>
       </section>
     </main>
     <script src="/reversal.js" type="module"></script>
