@@ -647,6 +647,7 @@ const macroDefinitions = [
   { id: "brent", label: "Brent 原油", purpose: "全球原油价格参考", source: "Yahoo Finance BZ=F", yahoo: "BZ=F", frequency: "5 分钟" },
   { id: "dxy", label: "DXY 美元指数", purpose: "判断美元整体强弱", source: "Yahoo Finance DX-Y.NYB", yahoo: "DX-Y.NYB", frequency: "5 分钟" },
   { id: "usdcny", label: "USD/CNY", purpose: "美元兑人民币汇率", source: "Yahoo Finance CNY=X", yahoo: "CNY=X", frequency: "5 分钟" },
+  { id: "cnyusd", label: "CNY/USD", purpose: "人民币兑美元汇率，由 USD/CNY 反算", source: "由 USD/CNY 反算", derivedFrom: "usdcny", inverse: true, frequency: "5 分钟" },
   { id: "eurusd", label: "EUR/USD", purpose: "欧元兑美元，观察美元和欧洲市场变化", source: "Yahoo Finance EURUSD=X", yahoo: "EURUSD=X", frequency: "5 分钟" },
   { id: "usdjpy", label: "USD/JPY", purpose: "美元兑日元，观察避险和套息交易", source: "Yahoo Finance JPY=X", yahoo: "JPY=X", frequency: "5 分钟" },
   { id: "real10y", label: "10Y REAL", purpose: "10 年实际利率，衡量扣除通胀预期后的资金成本", source: "FRED DFII10", fredSeries: "DFII10", unit: "percent", frequency: "每日" },
@@ -671,12 +672,12 @@ async function getMacroOverview() {
   const rows = await mapLimit(macroDefinitions, 6, async (definition) => {
     if (definition.treasuryField || definition.treasurySpread) return getTreasuryMacro(definition);
     if (definition.fredSeries) return getFredMacro(definition);
-    if (definition.fedField) return unavailableMacro(definition);
+    if (definition.fedField || definition.derivedFrom) return unavailableMacro(definition);
     if (!definition.yahoo) return unavailableMacro(definition);
     try {
       const chart = await yahooChart(definition.yahoo, { range: "5d", interval: "1d" });
       const meta = chart.meta || {};
-      const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)));
+      const closes = (chart.indicators?.quote?.[0]?.close || []).filter((value) => Number.isFinite(Number(value)) && Number(value) > 0);
       const scale = definition.scale || 1;
       const value = Number(meta.regularMarketPrice ?? closes.at(-1)) * scale;
       const metaPreviousClose = Number(meta.previousClose);
@@ -695,11 +696,22 @@ async function getMacroOverview() {
       return { ...definition, status: "unavailable", value: null, change: null, changePct: null };
     }
   });
+  const sourceRows = new Map(rows.map((row) => [row.id, row]));
+  const derivedRows = rows.map((row) => {
+    if (!row.derivedFrom || !row.inverse) return row;
+    const source = sourceRows.get(row.derivedFrom);
+    const sourceValue = Number(source?.value);
+    const sourcePrevious = Number(source?.previousClose);
+    if (source?.status !== "live" || !Number.isFinite(sourceValue) || sourceValue === 0) return unavailableMacro(row);
+    const value = 1 / sourceValue;
+    const previousClose = Number.isFinite(sourcePrevious) && sourcePrevious !== 0 ? 1 / sourcePrevious : null;
+    return { ...row, status: "live", value, previousClose, change: previousClose === null ? null : value - previousClose, changePct: previousClose === null ? null : ((value - previousClose) / previousClose) * 100, asOf: source.asOf || null };
+  });
   const fedRows = await getFedWatchMacros();
   const fedByField = new Map(fedRows.map((row) => [row.fedField, row]));
   const data = {
     generatedAt: new Date().toISOString(),
-    rows: rows.map((row) => row.fedField ? fedByField.get(row.fedField) || row : row),
+    rows: derivedRows.map((row) => row.fedField ? fedByField.get(row.fedField) || row : row),
   };
   macroOverviewCache = { at: Date.now(), data };
   return data;
