@@ -409,43 +409,48 @@ async function handleReversalHistory(req, res) {
   json(res, 200, { generatedAt: new Date().toISOString(), records: history.slice(0, limit) });
 }
 
+async function scanReversalData(requested, selectionMode) {
+  const key = requested.map((asset) => asset.symbol).join(",");
+  const cached = reversalCache.get(key);
+  if (cached && Date.now() - cached.at < REVERSAL_CACHE_MS) return cached.data;
+
+  const rows = await mapLimit(requested, 4, async (asset) => {
+    try {
+      const candles = await getReversalCandles(asset);
+      return { ...asset, ...buildReversalSignal(asset, candles), error: null };
+    } catch (error) {
+      return { ...asset, status: "error", current: null, signals: [], zones: [], error: error.message };
+    }
+  });
+  const data = {
+    generatedAt: new Date().toISOString(),
+    timeframe: "1D",
+    selectionMode,
+    minimumAgeBars: { stocks: 10, crypto: 14 },
+    proximityPct: 1.2,
+    minimumAgeText: "股票 10 个交易日 / 加密资产 14 根日线",
+    rows,
+    signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),
+  };
+  try {
+    const history = await recordReversalSignals(data.signals);
+    data.historyCount = history.length;
+  } catch (error) {
+    data.historyCount = (await loadReversalHistory()).length;
+    data.historyError = error.message;
+  }
+  reversalCache.set(key, { at: Date.now(), data });
+  return data;
+}
+
 async function handleReversalScan(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const symbols = url.searchParams.get("symbols")?.trim();
-  const requested = symbols
-    ? symbols.split(",").map(resolveReversalAsset).filter(Boolean).slice(0, 40)
-    : await getDefaultReversalAssets();
-  const key = requested.map((asset) => asset.symbol).join(",");
-  const cached = reversalCache.get(key);
-  if (cached && Date.now() - cached.at < REVERSAL_CACHE_MS) return json(res, 200, cached.data);
-
   try {
-    const rows = await mapLimit(requested, 4, async (asset) => {
-      try {
-        const candles = await getReversalCandles(asset);
-        return { ...asset, ...buildReversalSignal(asset, candles), error: null };
-      } catch (error) {
-        return { ...asset, status: "error", current: null, signals: [], zones: [], error: error.message };
-      }
-    });
-    const data = {
-      generatedAt: new Date().toISOString(),
-      timeframe: "1D",
-      selectionMode: symbols ? "manual" : "24h-quote-volume",
-      minimumAgeBars: { stocks: 10, crypto: 14 },
-      proximityPct: 1.2,
-      minimumAgeText: "股票 10 个交易日 / 加密资产 14 根日线",
-      rows,
-      signals: rows.flatMap((row) => row.signals.map((signal) => ({ ...signal, ...row }))),
-    };
-    try {
-      const history = await recordReversalSignals(data.signals);
-      data.historyCount = history.length;
-    } catch (error) {
-      data.historyCount = (await loadReversalHistory()).length;
-      data.historyError = error.message;
-    }
-    reversalCache.set(key, { at: Date.now(), data });
+    const requested = symbols
+      ? symbols.split(",").map(resolveReversalAsset).filter(Boolean).slice(0, 40)
+      : await getDefaultReversalAssets();
+    const data = await scanReversalData(requested, symbols ? "manual" : "24h-quote-volume");
     json(res, 200, data);
   } catch (error) {
     json(res, 502, { error: error.message });
@@ -1314,6 +1319,17 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`OI dashboard running at http://localhost:${PORT}`);
+  const runAutomaticReversalScan = async () => {
+    try {
+      const requested = await getDefaultReversalAssets();
+      const data = await scanReversalData(requested, "24h-quote-volume");
+      console.log(`[reversal] automatic scan: ${data.rows.length} assets, ${data.signals.length} signals, history ${data.historyCount}`);
+    } catch (error) {
+      console.error(`[reversal] automatic scan failed: ${error.message}`);
+    }
+  };
+  setTimeout(runAutomaticReversalScan, 3_000);
+  setInterval(runAutomaticReversalScan, 5 * 60_000);
 });
 
 server.on("error", (error) => {
