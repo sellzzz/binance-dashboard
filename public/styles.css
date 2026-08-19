@@ -16,7 +16,9 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(52, 104, 173, 0.12), transparent 30%),
+    var(--bg);
   color: var(--text);
   font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
 }
@@ -175,6 +177,10 @@ p {
   text-decoration: none;
 }
 
+.featureTile:not(.staticTile) {
+  cursor: pointer;
+}
+
 .featureTile strong {
   margin-top: 12px;
   font-size: 18px;
@@ -224,6 +230,11 @@ p {
 
 .macroTablePanel {
   margin-top: 14px;
+}
+
+.macroTablePanel .empty {
+  height: 72px;
+  vertical-align: middle;
 }
 
 .macroSource {
@@ -1245,6 +1256,9 @@ dialog {
 
 /* Shared navigation and dashboard polish */
 .siteBar {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1526,5 +1540,15 @@ dialog {
 
   .homeIntro {
     min-height: 160px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1080px) {
+  .homeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .homeHero {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.7fr);
   }
 }

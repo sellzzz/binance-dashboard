@@ -151,7 +151,11 @@ function formatMacroChange(row) {
 }
 
 function renderMacroRows(rows) {
-  els.macroRows.innerHTML = rows.map((row) => {
+  const extraRows = rows.filter((row) => {
+    const key = String(row.symbol || row.label || "").toUpperCase().trim();
+    return !(key === "VIX" || key === "DXY" || key === "^VIX" || key === "DX-Y.NYB" || key.startsWith("VIX ") || key.startsWith("DXY "));
+  });
+  els.macroRows.innerHTML = extraRows.length ? extraRows.map((row) => {
     const live = row.status === "live" && row.value !== null && row.value !== undefined;
     const change = Number(row.change);
     const value = live ? formatMacroValue(row) : "暂无数据";
@@ -166,7 +170,7 @@ function renderMacroRows(rows) {
       <td class="${changeClass}">${escapeHtml(changeText)}</td>
       <td>${escapeHtml(row.frequency)}</td>
     </tr>`;
-  }).join("");
+  }).join("") : '<tr><td colspan="6" class="empty">暂无其他宏观指标</td></tr>';
 }
 
 async function loadMacroOverview() {
