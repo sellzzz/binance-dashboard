@@ -443,11 +443,14 @@ function buildReversalStats(asset, candles, horizon, targetPct) {
     }
   }
   const resolved = samples.filter((row) => row.outcome !== "timeout");
+  const supportRows = samples.filter((row) => row.type === "support-touch" && row.outcome !== "timeout");
+  const resistanceRows = samples.filter((row) => row.type === "resistance-touch" && row.outcome !== "timeout");
+  const hitRate = (rows) => rows.length ? rows.filter((row) => row.outcome === "successful").length / rows.length : null;
   const avg = (rows, field) => rows.length ? rows.reduce((sum, row) => sum + Number(row[field] || 0), 0) / rows.length : null;
   return {
     generatedAt: new Date().toISOString(), symbol: asset.symbol, market: asset.market, timeframe: "1D", horizonBars: horizon, targetPct,
     samples: samples.length, resolved: resolved.length, successful: samples.filter((row) => row.outcome === "successful").length, invalidated: samples.filter((row) => row.outcome === "invalidated").length, timeout: samples.filter((row) => row.outcome === "timeout").length,
-    winRate: resolved.length ? samples.filter((row) => row.outcome === "successful").length / resolved.length : null, averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(samples, "maxFavorablePct"), averageMaxAdversePct: avg(samples, "maxAdversePct"), recent: samples.slice(-20).reverse(),
+    indicatorHitRate: hitRate(resolved), supportHitRate: hitRate(supportRows), resistanceHitRate: hitRate(resistanceRows), winRate: hitRate(resolved), averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(samples, "maxFavorablePct"), averageMaxAdversePct: avg(samples, "maxAdversePct"), recent: samples.slice(-20).reverse(),
   };
 }
 
