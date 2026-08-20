@@ -460,7 +460,7 @@ function buildReversalStats(asset, candles, horizon, targetPct) {
   return {
     generatedAt: new Date().toISOString(), symbol: asset.symbol, market: asset.market, timeframe: "1D", horizonBars: horizon, targetPct,
     cooldownDays: REVERSAL_SIGNAL_COOLDOWN_DAYS, samples: dedupedSamples.length, resolved: resolved.length, successful: dedupedSamples.filter((row) => row.outcome === "successful").length, invalidated: dedupedSamples.filter((row) => row.outcome === "invalidated").length, timeout: dedupedSamples.filter((row) => row.outcome === "timeout").length,
-    indicatorHitRate: hitRate(resolved), supportHitRate: hitRate(supportRows), resistanceHitRate: hitRate(resistanceRows), winRate: hitRate(resolved), averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(dedupedSamples, "maxFavorablePct"), averageMaxAdversePct: avg(dedupedSamples, "maxAdversePct"), recent: dedupedSamples.slice(-20).reverse(),
+    indicatorHitRate: hitRate(resolved), supportHitRate: hitRate(supportRows), resistanceHitRate: hitRate(resistanceRows), winRate: hitRate(resolved), averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(dedupedSamples, "maxFavorablePct"), averageMaxAdversePct: avg(dedupedSamples, "maxAdversePct"), records: dedupedSamples, recent: dedupedSamples.slice(-20).reverse(),
   };
 }
 

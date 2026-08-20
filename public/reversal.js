@@ -13,7 +13,9 @@ const els = {
   historyStatus: $("historyStatus"),
   statsBtn: $("statsBtn"), statsSymbol: $("statsSymbol"), statsHorizon: $("statsHorizon"), statsTarget: $("statsTarget"), statsStatus: $("statsStatus"), statsSummary: $("statsSummary"),
   statsOutcomeBar: $("statsOutcomeBar"), statsTimeline: $("statsTimeline"),
+  exportStatsBtn: $("exportStatsBtn"),
 };
+let latestStats = null;
 
 let controller = null;
 
@@ -83,6 +85,8 @@ async function loadStats() {
     const response = await fetch(`/api/reversal/stats?${query}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "统计失败");
+    latestStats = data;
+    els.exportStatsBtn.disabled = false;
     const pct = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)}%` : "-";
     const num = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "-";
     els.statsStatus.textContent = `${data.samples} 个样本 · 已忽略 ${data.cooldownDays} 日内重复信号`;
@@ -102,6 +106,8 @@ async function loadStats() {
     els.statsSummary.innerHTML = `<div class="emptySignal">${escapeHtml(error.message)}</div>`;
     els.statsOutcomeBar.innerHTML = "";
     els.statsTimeline.innerHTML = "";
+    latestStats = null;
+    els.exportStatsBtn.disabled = true;
   } finally { els.statsBtn.disabled = false; }
 }
 
@@ -176,6 +182,21 @@ async function scan() {
 
 els.refreshBtn.addEventListener("click", scan);
 els.statsBtn.addEventListener("click", loadStats);
+els.exportStatsBtn.addEventListener("click", () => {
+  if (!latestStats?.records?.length) return;
+  const headers = ["symbol", "type", "status", "signalTime", "entry", "zoneLow", "zoneHigh", "outcome", "barsToOutcome", "maxFavorablePct", "maxAdversePct"];
+  const lines = [headers.join(","), ...latestStats.records.map((row) => headers.map((key) => {
+    const value = key === "signalTime" ? new Date(row[key]).toISOString() : row[key] ?? "";
+    return `"${String(value).replaceAll('"', '""')}"`;
+  }).join(","))];
+  const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${latestStats.symbol}-key-zone-stats.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
 els.symbols.addEventListener("keydown", (event) => {
   if (event.key === "Enter") scan();
 });
