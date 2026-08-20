@@ -220,6 +220,12 @@ const reversalPresets = new Map([
 function resolveReversalAsset(value) {
   const raw = String(value || "").trim().toUpperCase();
   if (!raw) return null;
+  const aliases = new Map([
+    ["PUMP/USD", "PUMPUSDT"],
+    ["PUMP-USD", "PUMPUSDT"],
+    ["PUMPFUN-USD", "PUMPUSDT"],
+  ]);
+  if (aliases.has(raw)) return resolveReversalAsset(aliases.get(raw));
   if (reversalPresets.has(raw)) return reversalPresets.get(raw);
   if (/\.HK$|=|\^|-USD$/.test(raw)) {
     return { symbol: raw, name: raw, market: "自定义行情", source: "yahoo", sourceSymbol: raw };
@@ -402,6 +408,61 @@ async function handleReversalHistory(req, res) {
   const limit = parseInteger(url.searchParams.get("limit"), 100, 1, 500);
   const history = await loadReversalHistory();
   json(res, 200, { generatedAt: new Date().toISOString(), records: history.slice(0, limit) });
+}
+
+function buildReversalStats(asset, candles, horizon, targetPct) {
+  const samples = [];
+  for (let end = 20; end < candles.length - 1; end += 1) {
+    const snapshot = candles.slice(0, end + 1);
+    const signals = buildReversalSignal(asset, snapshot).signals;
+    for (const signal of signals) {
+      const future = candles.slice(end + 1, Math.min(candles.length, end + 1 + horizon));
+      if (future.length < horizon) continue;
+      const support = signal.type === "support-touch";
+      const entry = Number(snapshot.at(-1).close);
+      const target = support ? entry * (1 + targetPct / 100) : entry * (1 - targetPct / 100);
+      let outcome = "timeout";
+      let barsToOutcome = horizon;
+      let maxFavorablePct = 0;
+      let maxAdversePct = 0;
+      for (let offset = 0; offset < future.length; offset += 1) {
+        const candle = future[offset];
+        const favorable = support ? ((candle.high - entry) / entry) * 100 : ((entry - candle.low) / entry) * 100;
+        const adverse = support ? ((entry - candle.low) / entry) * 100 : ((candle.high - entry) / entry) * 100;
+        maxFavorablePct = Math.max(maxFavorablePct, favorable);
+        maxAdversePct = Math.max(maxAdversePct, adverse);
+        const hitTarget = support ? candle.high >= target : candle.low <= target;
+        const invalidated = support ? candle.low < signal.zoneLow : candle.high > signal.zoneHigh;
+        if (invalidated || hitTarget) {
+          outcome = invalidated ? "invalidated" : "successful";
+          barsToOutcome = offset + 1;
+          break;
+        }
+      }
+      samples.push({ symbol: asset.symbol, type: signal.type, status: signal.isSecondTouch ? "second-touch" : "approaching", signalTime: signal.touchTime, entry, zoneLow: signal.zoneLow, zoneHigh: signal.zoneHigh, outcome, barsToOutcome, maxFavorablePct, maxAdversePct });
+    }
+  }
+  const resolved = samples.filter((row) => row.outcome !== "timeout");
+  const avg = (rows, field) => rows.length ? rows.reduce((sum, row) => sum + Number(row[field] || 0), 0) / rows.length : null;
+  return {
+    generatedAt: new Date().toISOString(), symbol: asset.symbol, market: asset.market, timeframe: "1D", horizonBars: horizon, targetPct,
+    samples: samples.length, resolved: resolved.length, successful: samples.filter((row) => row.outcome === "successful").length, invalidated: samples.filter((row) => row.outcome === "invalidated").length, timeout: samples.filter((row) => row.outcome === "timeout").length,
+    winRate: resolved.length ? samples.filter((row) => row.outcome === "successful").length / resolved.length : null, averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(samples, "maxFavorablePct"), averageMaxAdversePct: avg(samples, "maxAdversePct"), recent: samples.slice(-20).reverse(),
+  };
+}
+
+async function handleReversalStats(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const symbol = String(url.searchParams.get("symbol") || "PUMPFUN-USD").trim().toUpperCase();
+  const horizon = parseInteger(url.searchParams.get("horizon"), 10, 3, 30);
+  const targetPct = parseNumber(url.searchParams.get("targetPct"), 5, 0.5, 50);
+  try {
+    const asset = resolveReversalAsset(symbol);
+    const candles = await getReversalCandles(asset);
+    return json(res, 200, buildReversalStats(asset, candles, horizon, targetPct));
+  } catch (error) {
+    return json(res, 502, { error: error.message });
+  }
 }
 
 async function scanReversalData(requested, selectionMode) {
@@ -1552,6 +1613,7 @@ const dispatchRequest = createRouter({
     { match: (req) => req.url === "/api/health" || req.url === "/healthz", handler: handleHealth },
     { match: (req) => req.url.startsWith("/api/reversal/scan"), handler: handleReversalScan },
     { match: (req) => req.url.startsWith("/api/reversal/history"), handler: handleReversalHistory },
+    { match: (req) => req.url.startsWith("/api/reversal/stats"), handler: handleReversalStats },
     { match: (req) => req.url.startsWith("/api/onchain/alerts/events"), handler: handleOnchainEvents },
     { match: (req) => req.url.startsWith("/api/onchain/alerts"), handler: handleOnchainAlerts },
     { match: (req) => req.url.startsWith("/api/liquidity-range"), handler: handleLiquidityRange },

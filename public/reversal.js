@@ -11,6 +11,7 @@ const els = {
   watchBody: $("watchBody"),
   historyBody: $("historyBody"),
   historyStatus: $("historyStatus"),
+  statsBtn: $("statsBtn"), statsSymbol: $("statsSymbol"), statsHorizon: $("statsHorizon"), statsTarget: $("statsTarget"), statsStatus: $("statsStatus"), statsSummary: $("statsSummary"),
 };
 
 let controller = null;
@@ -71,6 +72,25 @@ async function loadHistory() {
     els.historyStatus.textContent = error.message;
     renderHistory([]);
   }
+}
+
+async function loadStats() {
+  els.statsBtn.disabled = true;
+  els.statsStatus.textContent = "计算中";
+  try {
+    const query = new URLSearchParams({ symbol: els.statsSymbol.value.trim(), horizon: els.statsHorizon.value, targetPct: els.statsTarget.value });
+    const response = await fetch(`/api/reversal/stats?${query}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "统计失败");
+    const pct = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)}%` : "-";
+    const num = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "-";
+    els.statsStatus.textContent = `${data.samples} 个样本`;
+    els.statsSummary.innerHTML = [["成功", data.successful], ["失效", data.invalidated], ["未完成", data.timeout], ["胜率", pct(data.winRate)], ["平均最大有利波动", num(data.averageMaxFavorablePct)], ["平均最大不利波动", num(data.averageMaxAdversePct)]]
+      .map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+  } catch (error) {
+    els.statsStatus.textContent = "失败";
+    els.statsSummary.innerHTML = `<div class="emptySignal">${escapeHtml(error.message)}</div>`;
+  } finally { els.statsBtn.disabled = false; }
 }
 
 function renderSignals(signals) {
@@ -143,6 +163,7 @@ async function scan() {
 }
 
 els.refreshBtn.addEventListener("click", scan);
+els.statsBtn.addEventListener("click", loadStats);
 els.symbols.addEventListener("keydown", (event) => {
   if (event.key === "Enter") scan();
 });

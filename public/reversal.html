@@ -65,6 +65,17 @@
         <div class="panelHead"><div><h2>信号记录</h2><p>服务器会保存接近预警和第二次触及，避免信号只出现一天后丢失。</p></div><span id="historyStatus" class="macroSource">读取中</span></div>
         <div class="tableWrap"><table class="reversalTable"><thead><tr><th>记录时间</th><th>标的</th><th>状态</th><th>方向</th><th>触发价 / 区域</th></tr></thead><tbody id="historyBody"></tbody></table></div>
       </section>
+
+      <section class="panel reversalStatsPanel">
+        <div class="panelHead"><div><h2>历史统计</h2><p>按当前规则逐日回放，判断目标收益是否先于区域失效出现。</p></div><span id="statsStatus" class="macroSource">未计算</span></div>
+        <div class="reversalStatsForm">
+          <label>标的<input id="statsSymbol" value="PUMPFUN-USD" /></label>
+          <label>观察天数<input id="statsHorizon" type="number" min="3" max="30" value="10" /></label>
+          <label>目标波动 %<input id="statsTarget" type="number" min="0.5" max="50" step="0.5" value="5" /></label>
+          <button id="statsBtn" type="button">生成统计</button>
+        </div>
+        <div id="statsSummary" class="reversalStatsSummary"></div>
+      </section>
     </main>
     <script src="/reversal.js" type="module"></script>
   </body>

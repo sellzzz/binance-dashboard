@@ -884,6 +884,22 @@ dialog::backdrop {
   min-width: 820px;
 }
 
+.reversalStatsForm,
+.reversalStatsSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.reversalStatsForm label { display: grid; gap: 7px; }
+.reversalStatsForm input { width: 100%; padding: 0 10px; background: #0d151f; }
+.reversalStatsForm button { align-self: end; }
+.reversalStatsSummary { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-top: 0; }
+.reversalStatsSummary div { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: #14253a; }
+.reversalStatsSummary span { color: var(--muted); font-size: 12px; }
+.reversalStatsSummary strong { font-size: 18px; color: #f4f7fb; }
+
 @media (min-width: 1000px) {
   .reversalShell {
     display: block;
@@ -1574,6 +1590,11 @@ dialog {
   .homeIntro {
     min-height: 160px;
   }
+}
+
+@media (max-width: 760px) {
+  .reversalStatsForm,
+  .reversalStatsSummary { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 761px) and (max-width: 1080px) {
