@@ -11,7 +11,7 @@ const els = {
   watchBody: $("watchBody"),
   historyBody: $("historyBody"),
   historyStatus: $("historyStatus"),
-  statsBtn: $("statsBtn"), statsSymbol: $("statsSymbol"), statsHorizon: $("statsHorizon"), statsTarget: $("statsTarget"), statsStatus: $("statsStatus"), statsSummary: $("statsSummary"),
+  statsBtn: $("statsBtn"), statsHorizon: $("statsHorizon"), statsTarget: $("statsTarget"), statsStatus: $("statsStatus"), statsSummary: $("statsSummary"),
   statsOutcomeBar: $("statsOutcomeBar"), statsTimeline: $("statsTimeline"),
   exportStatsBtn: $("exportStatsBtn"),
 };
@@ -81,7 +81,7 @@ async function loadStats() {
   els.statsBtn.disabled = true;
   els.statsStatus.textContent = "计算中";
   try {
-    const query = new URLSearchParams({ symbol: els.statsSymbol.value.trim(), horizon: els.statsHorizon.value, targetPct: els.statsTarget.value });
+    const query = new URLSearchParams({ horizon: els.statsHorizon.value, targetPct: els.statsTarget.value });
     const response = await fetch(`/api/reversal/stats?${query}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "统计失败");
@@ -89,7 +89,7 @@ async function loadStats() {
     els.exportStatsBtn.disabled = false;
     const pct = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)}%` : "-";
     const num = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "-";
-    els.statsStatus.textContent = `${data.samples} 个样本 · 已忽略 ${data.cooldownDays} 日内重复信号`;
+    els.statsStatus.textContent = `${data.assetsWithData}/${data.assetsRequested} 个标的 · ${data.samples} 个样本 · 已忽略 ${data.cooldownDays} 日内重复信号`;
     els.statsSummary.innerHTML = [["指标命中", data.successful], ["指标失效", data.invalidated], ["未完成", data.timeout], ["总体命中率", pct(data.indicatorHitRate)], ["支撑命中率", pct(data.supportHitRate)], ["阻力命中率", pct(data.resistanceHitRate)], ["平均有利波动", num(data.averageMaxFavorablePct)], ["平均不利波动", num(data.averageMaxAdversePct)]]
       .map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
     const total = Math.max(1, data.samples);
@@ -193,7 +193,7 @@ els.exportStatsBtn.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${latestStats.symbol}-key-zone-stats.csv`;
+  link.download = `${latestStats.symbol || "default-watchlist"}-key-zone-stats.csv`;
   link.click();
   URL.revokeObjectURL(url);
 });

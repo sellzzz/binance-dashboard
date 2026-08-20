@@ -466,13 +466,33 @@ function buildReversalStats(asset, candles, horizon, targetPct) {
 
 async function handleReversalStats(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const symbol = String(url.searchParams.get("symbol") || "PUMPFUN-USD").trim().toUpperCase();
+  const symbols = url.searchParams.get("symbols")?.trim();
   const horizon = parseInteger(url.searchParams.get("horizon"), 10, 3, 30);
   const targetPct = parseNumber(url.searchParams.get("targetPct"), 5, 0.5, 50);
   try {
-    const asset = resolveReversalAsset(symbol);
-    const candles = await getReversalCandles(asset);
-    return json(res, 200, buildReversalStats(asset, candles, horizon, targetPct));
+    const requestedAssets = symbols
+      ? symbols.split(",").map(resolveReversalAsset).filter(Boolean).slice(0, 80)
+      : await getDefaultReversalAssets();
+    const assets = [...new Map(requestedAssets.map((asset) => [asset.symbol, asset])).values()];
+    const results = await mapLimit(assets, 4, async (asset) => {
+      try {
+        return buildReversalStats(asset, await getReversalCandles(asset), horizon, targetPct);
+      } catch (error) {
+        return { symbol: asset.symbol, market: asset.market, error: error.message, samples: 0, records: [] };
+      }
+    });
+    const valid = results.filter((result) => !result.error);
+    const records = valid.flatMap((result) => result.records || []).sort((a, b) => a.signalTime - b.signalTime);
+    const resolved = records.filter((row) => row.outcome !== "timeout");
+    const successful = records.filter((row) => row.outcome === "successful");
+    const support = records.filter((row) => row.type === "support-touch" && row.outcome !== "timeout");
+    const resistance = records.filter((row) => row.type === "resistance-touch" && row.outcome !== "timeout");
+    const rate = (rows) => rows.length ? rows.filter((row) => row.outcome === "successful").length / rows.length : null;
+    const average = (field) => records.length ? records.reduce((sum, row) => sum + Number(row[field] || 0), 0) / records.length : null;
+    return json(res, 200, {
+      generatedAt: new Date().toISOString(), symbol: symbols || "DEFAULT_WATCHLIST", assetsRequested: assets.length, assetsWithData: valid.length, assetsFailed: results.filter((result) => result.error).map((result) => ({ symbol: result.symbol, error: result.error })), timeframe: "1D", horizonBars: horizon, targetPct, cooldownDays: REVERSAL_SIGNAL_COOLDOWN_DAYS,
+      samples: records.length, resolved: resolved.length, successful: successful.length, invalidated: records.filter((row) => row.outcome === "invalidated").length, timeout: records.filter((row) => row.outcome === "timeout").length, indicatorHitRate: rate(resolved), supportHitRate: rate(support), resistanceHitRate: rate(resistance), averageBarsToOutcome: resolved.length ? resolved.reduce((sum, row) => sum + Number(row.barsToOutcome || 0), 0) / resolved.length : null, averageMaxFavorablePct: average("maxFavorablePct"), averageMaxAdversePct: average("maxAdversePct"), records, recent: records.slice(-20).reverse(),
+    });
   } catch (error) {
     return json(res, 502, { error: error.message });
   }

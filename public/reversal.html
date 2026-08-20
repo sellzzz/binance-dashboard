@@ -69,7 +69,7 @@
       <section class="panel reversalStatsPanel">
         <div class="panelHead"><div><h2>指标命中率统计</h2><p>按当前规则逐日回放，判断预测方向是否先于区域失效出现，不等同于收益率。</p></div><span id="statsStatus" class="macroSource">未计算</span></div>
         <div class="reversalStatsForm">
-          <label>标的<input id="statsSymbol" value="PUMPFUN-USD" /></label>
+          <div class="statsScope"><span>统计范围</span><strong>全部观察标的</strong><small>港股、贵金属、美股合约及成交额前列的币安合约</small></div>
           <label>观察天数<input id="statsHorizon" type="number" min="3" max="30" value="10" /></label>
           <label>确认幅度 %<input id="statsTarget" type="number" min="0.5" max="50" step="0.5" value="5" /></label>
           <button id="statsBtn" type="button">生成统计</button>

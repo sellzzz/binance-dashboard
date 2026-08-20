@@ -895,6 +895,9 @@ dialog::backdrop {
 .reversalStatsForm label { display: grid; gap: 7px; }
 .reversalStatsForm input { width: 100%; padding: 0 10px; background: #0d151f; }
 .reversalStatsForm button { align-self: end; }
+.statsScope { display: grid; gap: 5px; align-content: center; min-width: 0; }
+.statsScope span, .statsScope small { color: var(--muted); font-size: 12px; }
+.statsScope strong { color: #f4f7fb; font-size: 15px; }
 .reversalStatsSummary { grid-template-columns: repeat(6, minmax(0, 1fr)); padding-top: 0; }
 .reversalStatsSummary div { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: #14253a; }
 .reversalStatsSummary span { color: var(--muted); font-size: 12px; }
