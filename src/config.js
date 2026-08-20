@@ -25,4 +25,5 @@ export const config = Object.freeze({
   treasuryCurveCsv: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv",
   cmeFedwatchApi: process.env.CME_FEDWATCH_API_URL || "https://markets.api.cmegroup.com/fedwatch/v1",
   concurrency: 12,
+  reversalSignalCooldownDays: 7,
 });

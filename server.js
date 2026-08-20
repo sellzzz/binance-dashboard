@@ -7,7 +7,7 @@ import { config } from "./src/config.js";
 import { createJsonStore } from "./src/json-store.js";
 import { createRouter } from "./src/router.js";
 
-const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, onchainPriceCacheMs: ONCHAIN_PRICE_CACHE_MS, onchainCheckConcurrency: ONCHAIN_CHECK_CONCURRENCY, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
+const { port: PORT, publicDir: PUBLIC_DIR, binanceFapi: BINANCE_FAPI, coingeckoApi: COINGECKO_API, dexscreenerApi: DEXSCREENER_API, bscRpc: BSC_RPC, cacheMs: CACHE_MS, macroCacheMs: MACRO_CACHE_MS, fetchTimeoutMs: FETCH_TIMEOUT_MS, maxScanCache: MAX_SCAN_CACHE, reversalCacheMs: REVERSAL_CACHE_MS, reversalHistoryFile: REVERSAL_HISTORY_FILE, reversalHistoryLimit: REVERSAL_HISTORY_LIMIT, onchainAlertsFile: ONCHAIN_ALERTS_FILE, onchainAlertLimit: ONCHAIN_ALERT_LIMIT, onchainPriceCacheMs: ONCHAIN_PRICE_CACHE_MS, onchainCheckConcurrency: ONCHAIN_CHECK_CONCURRENCY, reversalSignalCooldownDays: REVERSAL_SIGNAL_COOLDOWN_DAYS, fredApi: FRED_API, treasuryCurveCsv: TREASURY_CURVE_CSV, cmeFedwatchApi: CME_FEDWATCH_API, concurrency: CONCURRENCY } = config;
 
 let symbolsCache = { at: 0, data: [] };
 let marketCapCache = { at: 0, data: new Map() };
@@ -301,6 +301,15 @@ function touchesZone(candle, zone) {
   return candle.low <= zone.high && candle.high >= zone.low;
 }
 
+function dedupeReversalSignals(signals) {
+  const gapMs = REVERSAL_SIGNAL_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+  const kept = [];
+  for (const signal of signals.slice().sort((a, b) => a.touchTime - b.touchTime || a.distancePct - b.distancePct)) {
+    if (!kept.some((item) => item.type === signal.type && Math.abs(item.touchTime - signal.touchTime) < gapMs)) kept.push(signal);
+  }
+  return kept;
+}
+
 function buildReversalSignal(asset, candles) {
   if (candles.length < 20) return { status: "insufficient_data", current: null, signals: [], zones: [] };
   const current = candles.at(-1);
@@ -355,9 +364,9 @@ function buildReversalSignal(asset, candles) {
     }
   }
 
-  const signals = candidates
+  const signals = dedupeReversalSignals(candidates
     .filter((candidate) => candidate.isSecondTouch || candidate.isSecondApproach)
-    .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars);
+    .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars));
   const zones = candidates
     .slice()
     .sort((a, b) => a.distancePct - b.distancePct || b.ageBars - a.ageBars)
@@ -442,15 +451,16 @@ function buildReversalStats(asset, candles, horizon, targetPct) {
       samples.push({ symbol: asset.symbol, type: signal.type, status: signal.isSecondTouch ? "second-touch" : "approaching", signalTime: signal.touchTime, entry, zoneLow: signal.zoneLow, zoneHigh: signal.zoneHigh, outcome, barsToOutcome, maxFavorablePct, maxAdversePct });
     }
   }
-  const resolved = samples.filter((row) => row.outcome !== "timeout");
-  const supportRows = samples.filter((row) => row.type === "support-touch" && row.outcome !== "timeout");
-  const resistanceRows = samples.filter((row) => row.type === "resistance-touch" && row.outcome !== "timeout");
+  const dedupedSamples = dedupeReversalSignals(samples.map((row) => ({ ...row, touchTime: row.signalTime, distancePct: 0 })));
+  const resolved = dedupedSamples.filter((row) => row.outcome !== "timeout");
+  const supportRows = dedupedSamples.filter((row) => row.type === "support-touch" && row.outcome !== "timeout");
+  const resistanceRows = dedupedSamples.filter((row) => row.type === "resistance-touch" && row.outcome !== "timeout");
   const hitRate = (rows) => rows.length ? rows.filter((row) => row.outcome === "successful").length / rows.length : null;
   const avg = (rows, field) => rows.length ? rows.reduce((sum, row) => sum + Number(row[field] || 0), 0) / rows.length : null;
   return {
     generatedAt: new Date().toISOString(), symbol: asset.symbol, market: asset.market, timeframe: "1D", horizonBars: horizon, targetPct,
-    samples: samples.length, resolved: resolved.length, successful: samples.filter((row) => row.outcome === "successful").length, invalidated: samples.filter((row) => row.outcome === "invalidated").length, timeout: samples.filter((row) => row.outcome === "timeout").length,
-    indicatorHitRate: hitRate(resolved), supportHitRate: hitRate(supportRows), resistanceHitRate: hitRate(resistanceRows), winRate: hitRate(resolved), averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(samples, "maxFavorablePct"), averageMaxAdversePct: avg(samples, "maxAdversePct"), recent: samples.slice(-20).reverse(),
+    cooldownDays: REVERSAL_SIGNAL_COOLDOWN_DAYS, samples: dedupedSamples.length, resolved: resolved.length, successful: dedupedSamples.filter((row) => row.outcome === "successful").length, invalidated: dedupedSamples.filter((row) => row.outcome === "invalidated").length, timeout: dedupedSamples.filter((row) => row.outcome === "timeout").length,
+    indicatorHitRate: hitRate(resolved), supportHitRate: hitRate(supportRows), resistanceHitRate: hitRate(resistanceRows), winRate: hitRate(resolved), averageBarsToOutcome: avg(resolved, "barsToOutcome"), averageMaxFavorablePct: avg(dedupedSamples, "maxFavorablePct"), averageMaxAdversePct: avg(dedupedSamples, "maxAdversePct"), recent: dedupedSamples.slice(-20).reverse(),
   };
 }
 

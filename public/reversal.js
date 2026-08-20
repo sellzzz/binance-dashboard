@@ -84,7 +84,7 @@ async function loadStats() {
     if (!response.ok) throw new Error(data.error || "统计失败");
     const pct = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)}%` : "-";
     const num = (value) => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)}%` : "-";
-    els.statsStatus.textContent = `${data.samples} 个样本`;
+    els.statsStatus.textContent = `${data.samples} 个样本 · 已忽略 ${data.cooldownDays} 日内重复信号`;
     els.statsSummary.innerHTML = [["指标命中", data.successful], ["指标失效", data.invalidated], ["未完成", data.timeout], ["总体命中率", pct(data.indicatorHitRate)], ["支撑命中率", pct(data.supportHitRate)], ["阻力命中率", pct(data.resistanceHitRate)], ["平均有利波动", num(data.averageMaxFavorablePct)], ["平均不利波动", num(data.averageMaxAdversePct)]]
       .map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
   } catch (error) {
