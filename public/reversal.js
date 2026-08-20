@@ -12,6 +12,7 @@ const els = {
   historyBody: $("historyBody"),
   historyStatus: $("historyStatus"),
   statsBtn: $("statsBtn"), statsSymbol: $("statsSymbol"), statsHorizon: $("statsHorizon"), statsTarget: $("statsTarget"), statsStatus: $("statsStatus"), statsSummary: $("statsSummary"),
+  statsOutcomeBar: $("statsOutcomeBar"), statsTimeline: $("statsTimeline"),
 };
 
 let controller = null;
@@ -87,9 +88,20 @@ async function loadStats() {
     els.statsStatus.textContent = `${data.samples} 个样本 · 已忽略 ${data.cooldownDays} 日内重复信号`;
     els.statsSummary.innerHTML = [["指标命中", data.successful], ["指标失效", data.invalidated], ["未完成", data.timeout], ["总体命中率", pct(data.indicatorHitRate)], ["支撑命中率", pct(data.supportHitRate)], ["阻力命中率", pct(data.resistanceHitRate)], ["平均有利波动", num(data.averageMaxFavorablePct)], ["平均不利波动", num(data.averageMaxAdversePct)]]
       .map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join("");
+    const total = Math.max(1, data.samples);
+    els.statsOutcomeBar.innerHTML = [
+      ["成功", data.successful, "isSuccess"], ["失效", data.invalidated, "isFailure"], ["未完成", data.timeout, "isPending"],
+    ].map(([label, value, cls]) => `<div class="statsOutcomeSegment ${cls}" style="width:${Number(value) / total * 100}%" title="${label} ${value}"><span>${label}</span><b>${value}</b></div>`).join("");
+    els.statsTimeline.innerHTML = (data.recent || []).slice().reverse().map((row) => {
+      const cls = row.outcome === "successful" ? "isSuccess" : row.outcome === "invalidated" ? "isFailure" : "isPending";
+      const label = row.outcome === "successful" ? "命中" : row.outcome === "invalidated" ? "失效" : "未完成";
+      return `<div class="statsTimelineItem ${cls}" title="${fmtDate(row.signalTime)} · ${label} · ${Number(row.maxFavorablePct).toFixed(2)}% 有利波动"><span>${fmtDate(row.signalTime)}</span><b>${label}</b></div>`;
+    }).join("");
   } catch (error) {
     els.statsStatus.textContent = "失败";
     els.statsSummary.innerHTML = `<div class="emptySignal">${escapeHtml(error.message)}</div>`;
+    els.statsOutcomeBar.innerHTML = "";
+    els.statsTimeline.innerHTML = "";
   } finally { els.statsBtn.disabled = false; }
 }
 

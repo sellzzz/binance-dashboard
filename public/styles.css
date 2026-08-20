@@ -900,6 +900,73 @@ dialog::backdrop {
 .reversalStatsSummary span { color: var(--muted); font-size: 12px; }
 .reversalStatsSummary strong { font-size: 18px; color: #f4f7fb; }
 
+.statsOutcomeBar {
+  display: flex;
+  height: 34px;
+  margin: 0 16px 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1a2635;
+}
+
+.statsOutcomeSegment {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  color: #fff;
+  font-size: 12px;
+  transition: width 220ms ease;
+}
+
+.statsOutcomeSegment.isSuccess,
+.statsTimelineItem.isSuccess { background: #087f6b; }
+.statsOutcomeSegment.isFailure,
+.statsTimelineItem.isFailure { background: #a13c55; }
+.statsOutcomeSegment.isPending,
+.statsTimelineItem.isPending { background: #526174; }
+
+.statsChartHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 16px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.statsChartHead strong { color: var(--text); }
+
+.statsTimeline {
+  display: grid;
+  grid-template-columns: repeat(20, minmax(10px, 1fr));
+  gap: 5px;
+  min-height: 86px;
+  margin: 0 16px 18px;
+  padding: 12px 10px 10px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #0d151f;
+}
+
+.statsTimelineItem {
+  display: grid;
+  min-width: 0;
+  height: 46px;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 10px;
+}
+
+.statsTimelineItem span { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; opacity: 0.8; }
+
 @media (min-width: 1000px) {
   .reversalShell {
     display: block;
@@ -1595,6 +1662,8 @@ dialog {
 @media (max-width: 760px) {
   .reversalStatsForm,
   .reversalStatsSummary { grid-template-columns: 1fr; }
+
+  .statsTimeline { grid-template-columns: repeat(10, minmax(18px, 1fr)); }
 }
 
 @media (min-width: 761px) and (max-width: 1080px) {
